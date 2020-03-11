@@ -1,0 +1,4 @@
+pillow
+ImageHash
+pysaucenao
+python-slugify
