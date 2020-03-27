@@ -8,13 +8,15 @@ if not exist env (
 
 call env\Scripts\activate
 
-python -m pip install --upgrade pip
-pip install -r requirments.txt
+REM python -m pip install --upgrade pip
+REM pip install -r requirments.txt
 
 if "%~2" EQU "" (
-    python dublicates.py "img"
+    python dublicates.py "..\Drive_NSFW\Bilder\Anime\SauceNAO\SauceNAO" "img"
 ) else (
     start pythonw dublicates.py "%~2"
 )
+
+REM "..\Drive_NSFW\Bilder\Anime\SauceNAO\SauceNAO"
 
 call deactivate

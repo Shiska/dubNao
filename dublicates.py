@@ -27,90 +27,80 @@ import PIL.ImageChops
 
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
+class AutoScrollbar(tkinter.Scrollbar):
+    # a scrollbar that hides itself if it's not needed.
+    # only works if you use the grid geometry manager.
+    def set(self, lo, hi):
+        try:
+            retn = super().set(lo, hi)
+        except tkinter.TclError:
+            pass
+        else:
+            if float(lo) <= 0.0 and float(hi) >= 1.0:
+                self.grid_remove()
+            else:
+                self.grid()
+
+            return retn
+
+    def pack(self, **kw):
+        raise tkinter.TclError('cannot use pack with this widget')
+
+    def place(self, **kw):
+        raise tkinter.TclError('cannot use place with this widget')
+
+class ScrollableFrame(tkinter.Frame):
+    def __init__(self, master, x, y): # hierarchy: master -> frame -> vscrollbar, hscrollbar, canvas -> self
+        frame = tkinter.Frame(master)
+        frame.grid_rowconfigure(0, weight = 1)
+        frame.grid_columnconfigure(0, weight = 1)
+
+        vscrollbar = AutoScrollbar(frame)
+        vscrollbar.grid(row = 0, column = 1, sticky = 'NS')
+        hscrollbar = AutoScrollbar(frame, orient = tkinter.HORIZONTAL)
+        hscrollbar.grid(row = 1, column = 0, sticky = 'EW')
+
+        canvas = tkinter.Canvas(frame, yscrollcommand = vscrollbar.set, xscrollcommand = hscrollbar.set)
+        canvas.grid(row = 0, column = 0, sticky = 'NESW')
+
+        super().__init__(canvas)
+
+        self.bind('<Configure>', lambda event: canvas.config(scrollregion = canvas.bbox('all')))
+
+        vscrollbar.config(command = canvas.yview)
+        hscrollbar.config(command = canvas.xview)
+
+        canvas.create_window(x, y, anchor = tkinter.N, window = self)
+
+        self.__destroy = self.destroy
+
+        def destroy():
+            return self.__destroy(), frame.destroy()
+
+        self.grid = frame.grid
+        self.pack = frame.pack
+        self.place = frame.place
+        self.destroy = destroy
+
 class Application(tkinter.Tk):
     def __init__(self, master = None):
         super().__init__(master)
 
+        self.frame = None
         self.loop = asyncio.get_event_loop()
         self.attributes("-fullscreen", True)
         self.title('Dublicate finder')
 
         self.index(skip = False, fullScan = False)
 
-    def createFrame(self): # init once with itself as master
-        self.createFrame = self.__createFrame
+    def createFrame(self):
+        if self.frame:
+            self.frame.destroy()
 
-        return self.createFrame(self)
+        self.frame = ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
+        self.frame.pack(expand = True, fill = tkinter.BOTH)
 
-    class __createFrame: # somehow scrapped together and working
-        class AutoScrollbar(tkinter.Scrollbar):
-            # a scrollbar that hides itself if it's not needed.
-            # only works if you use the grid geometry manager.
-            def set(self, lo, hi):
-                if float(lo) <= 0.0 and float(hi) >= 1.0:
-                    # grid_remove is currently missing from Tkinter!
-                    self.tk.call('grid', 'remove', self)
-                else:
-                    self.grid()
-                
-                super().set(lo, hi)
-            def pack(self, **kw):
-                raise tkinter.TclError('cannot use pack with this widget')
-
-            def place(self, **kw):
-                raise tkinter.TclError('cannot use place with this widget')
-
-        window = None
-
-        def __new__(cls, master = None):
-            if not cls.window:
-                cls.init(master)
-            else:
-                cls.frame.destroy()
-
-            frame = tkinter.Frame(cls.canvas)
-            frame.bind("<Configure>", cls.OnFrameConfigure)
-            
-            cls.canvas.yview_moveto(0) # scoll up, xview_moveto fucks up x position :/ so I removed it
-            cls.canvas.itemconfigure(cls.window, window = frame)
-            
-            cls.frame = frame
-
-            return frame
-
-        @classmethod
-        def init(cls, master):
-            vscrollbar = cls.AutoScrollbar(master)
-            vscrollbar.grid(row = 0, column = 1, sticky = 'NS')
-            hscrollbar = cls.AutoScrollbar(master, orient = tkinter.HORIZONTAL)
-            hscrollbar.grid(row = 1, column = 0, sticky = 'EW')
-
-            cls.canvas = tkinter.Canvas(master, yscrollcommand = vscrollbar.set, xscrollcommand = hscrollbar.set)
-            cls.canvas.grid(row = 0, column = 0, sticky = 'NESW')
-
-            vscrollbar.config(command = cls.canvas.yview)
-            hscrollbar.config(command = cls.canvas.xview)
-            # make the canvas expandable
-            master.grid_rowconfigure(0, weight = 1)
-            master.grid_columnconfigure(0, weight = 1)
-            # position window in the center and anchor it at top (default scroll position I guess)
-            cls.window = cls.canvas.create_window(master.winfo_screenwidth() / 2, 0, anchor = tkinter.N)
-
-        @classmethod
-        def OnFrameConfigure(cls, event):
-            cls.canvas.config(scrollregion = cls.canvas.bbox('all'))
-
-    def clear(self):
-        pass
-
-    def load(self):
-        if os.path.exists('imageshashes.pkl'):
-            with open('imageshashes.pkl', 'rb') as file:
-                self.imageMap = pickle.load(file)
-
-            self.loaded()
-        else:
-            self.index()
+        return self.frame
 
     def saucenao(self):
         if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
@@ -121,7 +111,7 @@ class Application(tkinter.Tk):
 
             if len(files) == 0:
                 self.nodubs()
-            else:            
+            else:
                 self.snao = pysaucenao.SauceNao()
                 self.files = files
                 self.saucenaoNext()
@@ -130,12 +120,8 @@ class Application(tkinter.Tk):
 
     @staticmethod
     def createSubfolder(root, *args):
-        subdirs = []
-
-        for arg in args:
-            subdirs.append(slugify.slugify(arg))
-
-            path = os.path.join(root, *subdirs)
+        for idx in range(len(args)):
+            path = os.path.join(root, *args[:idx + 1])
 
             if not os.path.isdir(path):
                 os.mkdir(path)
@@ -164,29 +150,38 @@ class Application(tkinter.Tk):
             self.store()
 
     def moveFileTo(self, file, data = None):
-        dir = os.path.abspath(os.path.join(os.path.dirname(file), '..'))
+        dir = []
 
         if data:
-            name = None
-        
-            if 'material' in data:
-                name = data['material']
-            elif 'source' in data:
-                name = data['source']
-            elif 'title' in data:
-                name = data['title']
-
-            if name:
-                dir = self.createSubfolder(dir, name[0].upper(), name)
-
-                if 'characters' in data:
-                    dir = self.createSubfolder(dir, data['characters'])
+            if type(data) is str:
+                dir.append(data)
             else:
-                dir = self.createSubfolder(dir, 'misc')
-        else:
-            dir = self.createSubfolder(dir, 'misc')
+                name = None
+            
+                if 'material' in data:
+                    name = data['material']
+                elif 'source' in data:
+                    name = data['source']
+                elif 'title' in data:
+                    name = data['title']
 
-        path = os.path.join(dir, os.path.basename(file))
+                if name:
+                    name = slugify.slugify(name)
+
+                    initial = name[0].upper()
+
+                    if initial == name[0].lower():
+                        dir.append('_')
+
+                    dir.extend((initial, name[:64]))
+
+                    if 'characters' in data:
+                        dir.append(slugify.slugify(data['characters'][:64]))
+
+        if len(dir) == 0:
+            dir.append('_misc_')
+
+        path = os.path.join(self.createSubfolder(os.path.abspath(os.path.join(os.path.dirname(file), '..')), *dir), os.path.basename(file))
 
         self.renameFile(file, path)
 
@@ -241,9 +236,9 @@ class Application(tkinter.Tk):
 
             img, _, _ = self.getImg(PIL.Image.open(path))
 
-            button = tkinter.Button(labelFrame, image = img, command = self.openImage(path), borderwidth = 0)
-            button.image = img
-            button.pack()
+            label = tkinter.Label(labelFrame, image = img, borderwidth = 0)
+            label.image = img
+            label.pack()
 
             frame1 = tkinter.Frame(frame)
             frame1.grid(row = 3)
@@ -254,6 +249,9 @@ class Application(tkinter.Tk):
             def thread():
                 try:
                     results = self.loop.run_until_complete(self.snao.from_file(path))
+                    
+                    # with open('file.pkl', 'rb') as file:
+                        # results = pickle.load(file)
                 except pysaucenao.ShortLimitReachedException as e:
                     tkinter.Label(frame, text = self.remove_tags(e)).grid(row = 2)
 
@@ -264,13 +262,18 @@ class Application(tkinter.Tk):
                     self.files.append(file)
 
                     exit()
-                except (pysaucenao.FileSizeLimitException, pysaucenao.InvalidOrWrongApiKeyException) as e:
-                    tkinter.Label(frame, text = self.remove_tags(e)).grid(row = 2)
-                except pysaucenao.UnknownStatusCodeException as e:
-                    tkinter.Label(frame, text = self.remove_tags(e)).grid(row = 2)
+                except Exception as e:                
+                    dir = self.moveFileTo(path, '_error_')
+
+                    tkinter.Label(frame, text = self.remove_tags(e) + '\nMoved file to "' +  str(os.path.dirname(dir)) + '"').grid(row = 2)
+                    
+                    exit()
                 else:
+                    # with open('file.pkl', 'bw') as file:
+                        # pickle.dump(results, file)
+
                     data = {}
-                
+
                     for result in results:
                         for key, value in result.data.items():
                             if not key in data:
@@ -312,7 +315,7 @@ class Application(tkinter.Tk):
 
                 self.saucenaoNext()
 
-            # threading.Thread(target = thread, daemon = True).start()
+            threading.Thread(target = thread, daemon = True).start()
     
     @staticmethod
     def getImg(im, box = 300):
@@ -321,7 +324,7 @@ class Application(tkinter.Tk):
         else:
             size = ((box * im.width) // im.height, box)
             
-        img = im.resize(size).convert('RGBA')
+        img = im.resize(size).convert('RGB')
 
         return (PIL.ImageTk.PhotoImage(img), img, im)
 
@@ -369,7 +372,7 @@ class Application(tkinter.Tk):
         tkinter.Button(frame, text = 'Skip', command = lambda: self.index(skip = True)).grid(row = 0, column = 1)
         tkinter.Button(frame, text = 'Quit', command = self.destroy).grid(row = 0, column = 2)
 
-        def thread(dir):
+        def thread(dir): # TODO: remove saucenao scan, add "new folder" scan to integrate, than move files to saucenao
             if pklExists:
                 with open('imageshashes.pkl', 'rb') as file:
                     imageMap = pickle.load(file)
@@ -478,20 +481,26 @@ class Application(tkinter.Tk):
         if maxdiff < 32: # preselect best picture if difference is small
             maxsize = max(data['size'])
 
-            victims = []
+            victims = [idx for idx, size in enumerate(data['size']) if size == maxsize]
 
-            for idx, size in enumerate(data['size']):
-                if size == maxsize: 
-                    victims.append(idx)
+            if len(victims) != 1:
+                sizes = [data['filesize'][idx] for idx in victims]
+                maxsize = max(sizes)
 
-            if len(victims) == 1:
-                idxTrue = victims.pop()
-            else:
-                sizes = [(idx, data['filesize'][idx]) for idx in victims]
-                maxsize = max(sizes, key = lambda x: x[1])
-                idxTrue = maxsize[0]
+                victims = [victims[idx] for idx, size in enumerate(sizes) if size == maxsize]
 
-            # if maxdiff == 0:
+                if len(victims) != 1:
+                    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+                        path = os.path.abspath(sys.argv[1])
+
+                        newvictims = [idx for idx in victims if data['dir'][idx] != path]
+
+                        if len(newvictims) != 0: # if 0 all are in search path so use old victims
+                            victims = newvictims
+
+            idxTrue = victims[0]
+
+            # if maxdiff == 0: # could be dangerous for gifs which uses a black frame as start
                 # frame = self.createFrame()
 
                 # tkinter.Label(frame, text = 'Resolving 0 diff: "' + key + '" (' + str(len(self.dublicates)) + ' remaining)').grid(row = 0, column = 0)
