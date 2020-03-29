@@ -1,3 +1,26 @@
+# from tkinter import filedialog
+# from tkinter import *
+
+# def browse_button():
+    # # Allow user to select a directory and store it in global var
+    # # called folder_path
+    # global folder_path
+    # filename = filedialog.askdirectory()
+    # folder_path.set(filename)
+    # print(filename)
+
+
+# root = Tk()
+# folder_path = StringVar()
+# lbl1 = Label(master=root,textvariable=folder_path)
+# lbl1.grid(row=0, column=1)
+# button2 = Button(text="Browse", command=browse_button)
+# button2.grid(row=0, column=3)
+
+# mainloop()
+
+# exit()
+
 import os
 import re
 import io
@@ -12,10 +35,13 @@ import asyncio
 import filecmp
 import tkinter
 import tkinter.ttk
+import tkinter.filedialog
 import saucenao
 import pysaucenao
 import imagehash
 import threading
+
+import pathlib
 
 import urllib.request
 import urllib.parse
@@ -25,82 +51,211 @@ import PIL.ImageTk
 import PIL.ImageFile
 import PIL.ImageChops
 
+import widgets
+
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
-class AutoScrollbar(tkinter.Scrollbar):
-    # a scrollbar that hides itself if it's not needed.
-    # only works if you use the grid geometry manager.
-    def set(self, lo, hi):
-        try:
-            retn = super().set(lo, hi)
-        except tkinter.TclError:
-            pass
-        else:
-            if float(lo) <= 0.0 and float(hi) >= 1.0:
-                self.grid_remove()
-            else:
-                self.grid()
-
-            return retn
-
-    def pack(self, **kw):
-        raise tkinter.TclError('cannot use pack with this widget')
-
-    def place(self, **kw):
-        raise tkinter.TclError('cannot use place with this widget')
-
-class ScrollableFrame(tkinter.Frame):
-    def __init__(self, master, x, y): # hierarchy: master -> frame -> vscrollbar, hscrollbar, canvas -> self
-        frame = tkinter.Frame(master)
-        frame.grid_rowconfigure(0, weight = 1)
-        frame.grid_columnconfigure(0, weight = 1)
-
-        vscrollbar = AutoScrollbar(frame)
-        vscrollbar.grid(row = 0, column = 1, sticky = 'NS')
-        hscrollbar = AutoScrollbar(frame, orient = tkinter.HORIZONTAL)
-        hscrollbar.grid(row = 1, column = 0, sticky = 'EW')
-
-        canvas = tkinter.Canvas(frame, yscrollcommand = vscrollbar.set, xscrollcommand = hscrollbar.set)
-        canvas.grid(row = 0, column = 0, sticky = 'NESW')
-
-        super().__init__(canvas)
-
-        self.bind('<Configure>', lambda event: canvas.config(scrollregion = canvas.bbox('all')))
-
-        vscrollbar.config(command = canvas.yview)
-        hscrollbar.config(command = canvas.xview)
-
-        canvas.create_window(x, y, anchor = tkinter.N, window = self)
-
-        self.__destroy = self.destroy
-
-        def destroy():
-            return self.__destroy(), frame.destroy()
-
-        self.grid = frame.grid
-        self.pack = frame.pack
-        self.place = frame.place
-        self.destroy = destroy
+# logging.basicConfig(level = logging.DEBUG)
 
 class Application(tkinter.Tk):
     def __init__(self, master = None):
         super().__init__(master)
 
-        self.frame = None
-        self.loop = asyncio.get_event_loop()
-        self.attributes("-fullscreen", True)
+        # self.loop = asyncio.get_event_loop()
+        # self.attributes("-fullscreen", True)
         self.title('Dublicate finder')
 
-        self.index(skip = False, fullScan = False)
+        self._sframe = widgets.ScrollableFrame(self)
+        self._sframe.pack()
+        self._frame = None
 
-    def createFrame(self):
-        if self.frame:
-            self.frame.destroy()
+        # tkinter.Button(self._sframe, text = 'Quit', command = self.destroy).grid(row = 1)
 
-        self.frame = ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
-        self.frame.pack(expand = True, fill = tkinter.BOTH)
+        self._frame = self.mainFrame(self._sframe)
+        self._frame.grid(row = 0)
 
-        return self.frame
+        # self._mainFrame()
+
+    def _createNewFrame(self):
+        if self._frame:
+            self._frame.destroy()
+
+        self._frame = tkinter.Frame(self._sframe)
+        self._frame.grid(row = 0)
+
+        return self._frame
+        
+        # self.frame = widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
+        # self.frame.pack(expand = True, fill = tkinter.BOTH)
+        # self.frame.grid(row = 0, column = 0, sticky = 'NESW')
+        
+        # self.frame = widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
+
+        # return widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2)
+
+    class mainFrame(tkinter.Frame):
+        dirFile = 'dirs.pkl'
+
+        def __init__(self, master):
+            super().__init__(master)
+            
+            self.grid_columnconfigure(1, minsize = 75)
+            self.grid_columnconfigure(2, minsize = 75)
+
+            self._load()
+
+            print(str(self._dirs), str(self._cboxes), flush = True)
+            
+            tkinter.Label(self, text = 'Index').grid(row = 0, column = 1)
+            tkinter.Label(self, text = 'SauceNao').grid(row = 0, column = 2)
+
+            tkinter.Button(self, text = 'Add', command = lambda: self._add(tkinter.filedialog.askdirectory())).grid(row = 1, column = 0, sticky = 'e')
+            tkinter.Button(self, text = 'Start', command = None).grid(row = 1, column = 1, columnspan = 2)
+
+            print(sorted(self._dirs), flush = True)
+
+            for dir in sorted(self._dirs):
+                self._add(dir, *self._cboxes[dir], init = True)
+
+        def _load(self):
+            if pathlib.Path(self.dirFile).is_file():
+                with open(self.dirFile, 'rb') as file:
+                    (self._dirs, self._cboxes) = pickle.load(file)
+            else:
+                self._dirs = set()  # set for saving the dirs
+                self._cboxes = dict() # and dict to associating the checkbox values
+
+        def _store(self):
+            with open(self.dirFile, 'wb') as file:
+                pickle.dump((self._dirs, {key: [v.get() for v in value] for key, value in self._cboxes.items()}), file)
+
+        def _add(self, dir: str, ivar: bool = False, svar: bool = False, init: bool = False):
+            if init or not dir in self._dirs:
+                icheckbox = tkinter.BooleanVar()
+                icheckbox.set(ivar)
+                scheckbox = tkinter.BooleanVar()
+                scheckbox.set(svar)
+
+                self._dirs.add(dir)
+                self._cboxes[dir] = (icheckbox, scheckbox)
+
+                (column, row) = self.grid_size()
+
+                for w in self.grid_slaves(row = row - 1):
+                    w.grid(row = row)
+
+                # abutton.grid(row = row)
+                
+                row = row - 1
+
+                label = tkinter.Label(self, text = dir)
+                label.grid(row = row, column = 0, sticky = 'e')
+
+                tkinter.Checkbutton(self, variable = icheckbox, command = self._store).grid(row = row, column = 1)
+                tkinter.Checkbutton(self, variable = scheckbox, command = self._store).grid(row = row, column = 2)
+                tkinter.Button(self, text = 'Delete', command = lambda: self._delete(label)).grid(row = row, column = 3)
+
+                if not init:
+                    self._store()
+
+        def _delete(self, label: tkinter.Label):
+            (columns, rows) = self.grid_size()
+
+            dir = label['text']
+            row = label.grid_info()['row']
+            
+            for s in self.grid_slaves(row = row):
+                s.destroy()
+
+            for r in range(row, rows):
+                for s in self.grid_slaves(row = r):
+                    s.grid(row = r - 1)
+
+            self._dirs.remove(dir)
+            self._cboxes.pop(dir)
+            self._store()
+
+    def _mainFrame(self):
+        frame = self._createNewFrame()
+        
+        frame.grid_columnconfigure(1, minsize = 75)
+        frame.grid_columnconfigure(2, minsize = 75)
+        
+        (dirs, cboxes) = self._dirs
+        
+        print(self._dirs, flush = True)
+        print(type(dirs), type(cboxes), flush = True)
+        
+        tkinter.Label(frame, text = 'Index').grid(row = 0, column = 1)
+        tkinter.Label(frame, text = 'SauceNao').grid(row = 0, column = 2)
+
+        def add():
+            filename = tkinter.filedialog.askdirectory()
+
+            addRow(filename)
+            
+            # self._dirs.append((filename, ))
+
+        abutton = tkinter.Button(frame, text = 'Add', command = add)
+        abutton.grid(row = 1, column = 0, sticky = 'e')
+
+
+        def addRow(dir: str, ivar: bool = False, svar: bool = False, init: bool = False):
+            if init or not dir in dirs:
+                icheckbox = tkinter.BooleanVar()
+                icheckbox.set(ivar)
+                scheckbox = tkinter.BooleanVar()
+                scheckbox.set(svar)
+
+                dirs.add(dir)
+                cboxes[dir] = (icheckbox, scheckbox)
+
+                # row = abutton.grid_info()['row']
+
+                (column, row) = frame.grid_size()
+
+                abutton.grid(row = row)
+                
+                row = row - 1
+
+                tkinter.Label(frame, text = dir).grid(row = row, column = 0, sticky = 'e')
+                tkinter.Checkbutton(frame, variable = icheckbox, command = self._storeDirs).grid(row = row, column = 1)
+                tkinter.Checkbutton(frame, variable = scheckbox, command = self._storeDirs).grid(row = row, column = 2)
+                tkinter.Button(frame, text = 'Delete', command = lambda: self._deleteDir(dir)).grid(row = row, column = 3)
+
+                if not init:
+                    self._storeDirs()
+
+        for dir in sorted(dirs):
+            addRow(dir, *cboxes[dir], init = True)
+
+        print(frame.grid_slaves(row = 0), flush = True)
+        print(frame.grid_size(), flush = True)
+# from tkinter import filedialog
+# from tkinter import *
+
+# def browse_button():
+    # # Allow user to select a directory and store it in global var
+    # # called folder_path
+    # global folder_path
+    # filename = filedialog.askdirectory()
+    # folder_path.set(filename)
+    # print(filename)
+
+
+# root = Tk()
+# folder_path = StringVar()
+# lbl1 = Label(master=root,textvariable=folder_path)
+# lbl1.grid(row=0, column=1)
+# button2 = Button(text="Browse", command=browse_button)
+# button2.grid(row=0, column=3)
+
+
+        # print(os.getcwd(), flush = True)
+
+        # widgets.IndexFrame(frame, lambda: print('done', flush = True)).pack()
+
+        # self.index(skip = False, fullScan = False)
 
     def saucenao(self):
         if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):

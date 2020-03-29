@@ -2,3 +2,4 @@ pillow
 ImageHash
 pysaucenao
 python-slugify
+opencv-python
