@@ -10,21 +10,21 @@ import time
 class IndexFrame(tkinter.Frame):
     pklFile = 'imageshashes.pkl'
 
-    def __init__(self, master, command, *paths: str):
+    def __init__(self, master, *paths: str, command = None):
         super().__init__(master)
 
         self._dirs = list(paths)
         self._command = command
         self._files = iter(())
 
-        tkinter.Label(self, text = 'Scanning for files...').pack()
+        tkinter.Label(self, text = 'Scanning for files...').grid()
 
         self._dirLabel = tkinter.Label(self)
-        self._dirLabel.pack()
+        self._dirLabel.grid()
         self._fileLabel = tkinter.Label(self)
-        self._fileLabel.pack()
+        self._fileLabel.grid()
 
-        tkinter.Button(self, text = 'Skip', command = self.skip).pack()
+        tkinter.Button(self, text = 'Skip', command = self.skip).grid()
 
         if pathlib.Path(self.pklFile).is_file():
             with open(self.pklFile, 'rb') as file:
@@ -32,15 +32,16 @@ class IndexFrame(tkinter.Frame):
         else:
             self._imageMap = {}
 
-        master.wait_visibility() # necessary otherwise the gui won't show up at all
+        self._after = self.after_idle(self.process)
 
-        self._after = self.after_idle(self.process) # wait before starting but after wait_visibility!
+        self.bind('<Configure>', lambda event: self.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
     def skip(self):
         if self._after:
             self.after_cancel(self._after)
 
-        return self._command()
+        if self._command:
+            self._command(self._imageMap)
 
     def store(self):
         with open(self.pklFile, 'wb') as file:
@@ -58,6 +59,8 @@ class IndexFrame(tkinter.Frame):
                 return self.skip()
 
             dir = self._dirs.pop()
+
+            print(str(dir).encode('utf-8'), flush = True)
 
             self._files = pathlib.Path(dir).iterdir()
 
@@ -89,7 +92,8 @@ class IndexFrame(tkinter.Frame):
 
 if __name__ == '__main__':
     root = tkinter.Tk()
+    root.wait_visibility() # necessary otherwise the gui won't show up at all
 
-    IndexFrame(root, root.destroy, str(pathlib.Path(__file__).absolute().parent)).pack()
+    IndexFrame(root, str(pathlib.Path(__file__).absolute().parent), command = lambda imageMap: root.destroy()).pack()
     
     root.mainloop()

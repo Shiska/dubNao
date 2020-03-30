@@ -1,0 +1,6 @@
+widgets/__pycache__/
+trash/
+test/
+env/
+
+*.pkl
