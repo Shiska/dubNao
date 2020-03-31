@@ -3,6 +3,7 @@ import pathlib
 import tkinter
 import platform
 import subprocess
+import hurry.filesize
 
 import PIL.Image
 import PIL.ImageTk
@@ -14,38 +15,66 @@ class SelectFrame(tkinter.Frame):
     thumbnailSize = 300
     maxImagesPerRow = 6
 
-    colors = [
+    colors = dict(enumerate([
         'green',
         'red',
         'blue',
         'violet',
         'orange',
-    ]
+    ]))
 
-    def __init__(self, master, imageMap: dict, dest: str, *src: str, command = None):
+    def __init__(self, master, imageMap, dest: str, *src: str, command = None):
         super().__init__(master)
 
         self.command = command
+        self._entered = False
 
-        src = list(map(pathlib.Path, src))
+        src = [pathlib.Path(s).absolute() for s in src]
 
-        self._items = {key: value for key, value in imageMap.items() for v in value if any(p in src for p in pathlib.Path(v).parents)}
-        self._dest = pathlib.Path(dest)
+        self._imageMap = imageMap
+        self._items = {key: value for key, value in imageMap for v in value if any(p in src for p in pathlib.Path(v).parents)}
+        self._dest = pathlib.Path(dest).absolute()
 
-        self._keyFrame = tkinter.LabelFrame(self)
-        self._keyFrame.pack()
+        keyFrame = tkinter.LabelFrame(self)
+        keyFrame.pack()
 
-        self._frame = tkinter.Frame(self._keyFrame)
+        self._frame = tkinter.Frame(keyFrame)
+
+        frame = tkinter.Frame(self)
+        frame.pack()
         
-        tkinter.Button(self, text = 'Next', command = None).pack()
+        tkinter.Button(frame, text = 'Next', command = self._onNext).grid(row = 0, column = 0)
+
+        self._vButtonsFrame = tkinter.Frame(frame)
+        self._vButtonsFrame.grid(row = 0, column = 1)
+
+        tkinter.Button(self._vButtonsFrame, text = 'Start', command = self._startAll).grid(row = 0, column = 0)
+        tkinter.Button(self._vButtonsFrame, text = 'Stop', command = self._stopAll).grid(row = 0, column = 1)
+        tkinter.Button(self._vButtonsFrame, text = 'Reset', command = self._resetAll).grid(row = 0, column = 2)
+
+        def setPlaying(playing: bool):
+            self._menu._mframe._wasPlaying = playing
+
+        self._menu = tkinter.Menu(self, tearoff = 0)
+        self._menu.add_command(label = 'Start', command = lambda: setPlaying(True))
+        self._menu.add_command(label = 'Stop', command = lambda: setPlaying(False))
+        self._menu.add_command(label = 'Reset', command = lambda: self._menu._mframe.reset())
+        self._menu._active = False
+
+        def onEnterFrame(event):
+            self._menu._active = False
+
+        self.bind('<Enter>', onEnterFrame)
 
         self.showNext()
 
     def _newFrame(self, text: str):
-        self._keyFrame['text'] = text
+        master = self._frame.master
+
+        master['text'] = text
 
         self._frame.destroy()
-        self._frame = tkinter.Frame(self._keyFrame)
+        self._frame = tkinter.Frame(master)
         self._frame.pack()
 
         return self._frame
@@ -59,22 +88,11 @@ class SelectFrame(tkinter.Frame):
         else: # linux
             subprocess.call(('xdg-open', filepath))
 
-    # @staticmethod
-    # def getThumbnail(file: str, size = None):
-        # image = PIL.Image.open(file)
-
-        # thumbnail = image.copy()
-        # thumbnail.thumbnail(size if size or self.thumbnailSize)
-            
-        # # img = im.resize(size).convert('RGB')
-
-        # return (PIL.ImageTk.PhotoImage(thumbnail), thumbnail, image, file)
-
     @staticmethod
     def getDifference(image1, image2) -> tuple:
         diffImage = PIL.ImageChops.difference(image1, image2)
 
-        return (diffImage, max(diffImage.getdata()))
+        return (diffImage, max(d for data in diffImage.getdata() for d in data))
 
     @classmethod
     def getFileData(cls, files) -> dict:
@@ -82,13 +100,12 @@ class SelectFrame(tkinter.Frame):
 
         data['file'] = list(map(pathlib.Path, files))
         data['image'] = list(map(PIL.Image.open, data['file']))
-        data['thumbnail'] = [i.copy() for i in data['image']]
+        data['thumbnail'] = [i.convert('RGB') for i in data['image']]
 
         size = (cls.thumbnailSize, cls.thumbnailSize)
 
         [t.thumbnail(size) for t in data['thumbnail']]
 
-        data['photo'] = list(map(PIL.ImageTk.PhotoImage, data['thumbnail']))
         data['size'] = [i.size for i in data['image']]
         data['filesize'] = [f.stat().st_size for f in data['file']]
 
@@ -125,14 +142,14 @@ class SelectFrame(tkinter.Frame):
         ranking = {}
 
         items = dict()
-        
+
         items['name'] = [f.name for f in data['file']]
         items['dir'] = [f.parent for f in data['file']]
         items['size'] = data['size']
         items['filesize'] = data['filesize']
 
         for key, value in items.items():
-            enum = enumerate(value)
+            enum = list(enumerate(value))
             groups = {v1: [idx for idx, v2 in enum if v1 == v2] for v1 in value}
             sortByValue = sorted(groups.items(), key = lambda x: x[0], reverse = True)
             sortByLen = sorted([x[1] for x in sortByValue], key = len, reverse = True)
@@ -140,89 +157,79 @@ class SelectFrame(tkinter.Frame):
 
         return ranking
 
-    # def _addImages(self):
-        # for idx, image, file in images:
-            # column = idx % 6
-        
-            # if column == 0:
-                # frame2 = tkinter.Frame(frame0)
-                # frame2.grid(row = (idx // 6), column = 0)
-
-            # var = tkinter.BooleanVar()
-            # var.set(idxTrue == None or idxTrue == idx)
-            
-            # label = tkinter.LabelFrame(frame2, text = 'Difference: ' + str(diff[idx]))
-            # label.grid(row = 0, column = column, padx = 2.5, pady = 2.5)
-            # label.rowconfigure(0, minsize = thumbnail + 5)
-            # label.columnconfigure(0, minsize = thumbnail + 5)
-
-            # button = tkinter.Button(label, image = image[0], command = lambda: self.openFile(file), borderwidth = 0)
-            # button.photoImage = image[0]
-            # button.image = image[1]
-            # button.grid(row = 0, column = 0)
-            # button.bind('<Enter>', self.onenter(idx, checkbox))
-            # button.bind('<Leave>', self.onleave(checkbox))
-
-            # tkinter.Checkbutton(frame2, text = os.path.basename(file).encode('utf-8'), variable = var, wraplength = thumbnail, fg = self.colors(position['name'][idx])).grid(row = 1, column = column)
-            # tkinter.Label(frame2, text = 'Directory: ' + os.path.dirname(file), wraplength = thumbnail, fg = self.colors(position['dir'][idx])).grid(row = 2, column = column)
-            # tkinter.Label(frame2, text = 'Size: ' + str(image[2].size), wraplength = thumbnail, fg = self.colors(position['size'][idx])).grid(row = 3, column = column)
-            # tkinter.Label(frame2, text = 'Filesize: ' + str(os.path.getsize(file)), wraplength = thumbnail, fg = self.colors(position['filesize'][idx])).grid(row = 4, column = column)
-
-            # checkbox.append((file, var, button, label))
-
     @classmethod
     def _getColor(cls, idx: int):
-        return dict(enumerate(cls.colors)).get(idx, 'black')
+        return cls.colors.get(idx, 'black')
 
-    @classmethod
-    # def colors(cls, idx):
-        # if idx >= len(cls.__colors):
-            # return 'black'
-        
-        # return cls.__colors[idx]
+    def iterImages(self):
+        for rframe in self._frame.grid_slaves():
+            for cframe in rframe.grid_slaves():
+                mediaLabel = cframe.grid_slaves(row = 0)[0]
 
-    def onnext(self, key, checkbox):
-        def next():
-            s = set()
-        
-            for file, value, _, _ in checkbox:
-                if value.get() == False:
-                    self.moveFileToTrash(file)
-                else:
-                    s.add(file)
+                yield mediaLabel, mediaLabel.grid_slaves()[0]
 
-            if len(s) == 0:
-                del self.imageMap[key]
-            else:
-                s.add('ignore')
-                self.imageMap[key] = s
-
-            self.store()
-            self.next()
-
-        return next
-
-    def onenter(self, frame):
+    def _onEnterImage(self, frame):
         def enter(event):
-            for rframe in self._frame.grid_slaves():
-                for cframe in rframe.grid_slaves():
-                    imageLabel = cframe.grid_slaves(row = 0)[0]
-                    imageFrame = imageLabel.grid_slaves()[0]
+            if not self._entered:
+                self._entered = True
 
-                    (diffImage, difference) = self.getDifference(frame.thumbnail, imageFrame.thumbnail)
+                for mediaLabel, mediaFrame in self.iterImages():
+                    mediaFrame._wasPlaying = mediaFrame.isPlaying
 
-                    imageFrame['image'] = imageFrame.diff = PIL.ImageTk.PhotoImage(diffImage)
-                    imageLabel['text'] = 'Difference: ' + str(difference)
+                    if mediaFrame._wasPlaying:
+                        mediaFrame.stop()
+
+                    (diffImage, difference) = self.getDifference(frame.thumbnail, mediaFrame.thumbnail)
+
+                    mediaFrame['image'] = mediaFrame.diff = PIL.ImageTk.PhotoImage(diffImage)
+                    mediaLabel['text'] = 'Difference: ' + str(difference)
 
         return enter
 
-    def onleave(self, event):
-        for rframe in self._frame.grid_slaves():
-            for cframe in rframe.grid_slaves():
-                imageLabel = cframe.grid_slaves(row = 0)[0]
-                imageFrame = imageLabel.grid_slaves()[0]
+    def _onLeaveImage(self, event = None):
+        if self._menu._active:
+            self.after_idle(self._onLeaveImage)
+        elif self._entered:
+            self._entered = False
 
-                imageFrame['image'] = imageFrame.photo
+            for _, mediaFrame in self.iterImages():
+                mediaFrame['image'] = mediaFrame.photo
+
+                if mediaFrame._wasPlaying:
+                    mediaFrame.play()
+
+    def _popup(self, mframe):
+        def popup(event):
+            self._menu._active = True
+            self._menu._mframe = mframe
+            self._menu.post(event.x_root, event.y_root)
+
+        return popup
+
+    def _startAll(self):
+        for _, mediaFrame in self.iterImages():
+            mediaFrame.play()
+
+    def _stopAll(self):
+        for _, mediaFrame in self.iterImages():
+            mediaFrame.stop()
+
+    def _resetAll(self):
+        for _, mediaFrame in self.iterImages():
+            mediaFrame.reset()
+
+    def _onNext(self):
+        deleteFiles = [mediaFrame._file for _, mediaFrame in self.iterImages() if mediaFrame._var.get() == False]
+
+        self._newFrame('') # remove access from images
+
+        if len(deleteFiles):
+            for file in deleteFiles:
+                self._imageMap.moveFileToTrash(file)
+
+            self._imageMap.store()
+
+        self.showNext()
 
     def showNext(self):
         remaining = len(self._items)
@@ -241,12 +248,15 @@ class SelectFrame(tkinter.Frame):
             if length == 0:
                 tkinter.Label(frame, text = 'Files moved or deleted').grid()
 
+                self._imageMap.delete(hash = key)
                 self.after_idle(self.showNext)
             else:
                 data = self.getFileData(files)
 
                 ranking = self.groupData(data)
                 selected = self._preselectCheckbox(data)
+
+                isThereAnyVideo = False
 
                 for idx in range(length):
                     column = idx % self.maxImagesPerRow
@@ -259,38 +269,53 @@ class SelectFrame(tkinter.Frame):
                     cframe.grid(row = 0, column = column, padx = 2.5, pady = 2.5)
 
                     var = tkinter.BooleanVar()
-                    var.set(not selected or selected == idx)
+                    var.set(selected == None or selected == idx)
                     
-                    label = tkinter.LabelFrame(cframe, text = 'Difference: ' + str(data['difference'][idx]))
-                    label.columnconfigure(0, minsize = self.thumbnailSize + 5)
-                    label.rowconfigure(0, minsize = self.thumbnailSize + 5)
-                    label.grid()
+                    lframe = tkinter.LabelFrame(cframe, text = 'Difference: ' + str(data['difference'][idx]))
+                    lframe.columnconfigure(0, minsize = self.thumbnailSize + 5)
+                    lframe.rowconfigure(0, minsize = self.thumbnailSize + 5)
+                    lframe.grid()
 
                     file = data['file'][idx]
 
-                    mframe = MediaFrame(label, str(data['file'][idx]))
-
-                    # mframe = tkinter.Button(label, image = data['photo'][idx], command = lambda: self.openFile(file), borderwidth = 0)
-                    mframe.thumbnail = data['thumbnail'][idx]
-                    mframe.photo = data['photo'][idx]
+                    mframe = MediaFrame(lframe, str(file))
+                    mframe._file = file
+                    mframe._var = var
                     mframe.grid()
-                    # mframe.bind('<Enter>', self.onenter(mframe))
-                    # mframe.bind('<Leave>', self.onleave)
 
-                    checkbox = tkinter.Checkbutton(cframe, text = str(file.name), variable = var, wraplength = self.thumbnailSize, fg = self._getColor(ranking['name'][idx]))
-                    checkbox.var = var
-                    checkbox.grid()
+                    mframe.bind('<Button-1>', lambda event: self.openFile(file))
+                    mframe.bind('<Enter>', self._onEnterImage(mframe))
+                    mframe.bind('<Leave>', self._onLeaveImage)
 
-                    tkinter.Label(cframe, text = 'Directory: ' + str(file.parent), wraplength = self.thumbnailSize, fg = self._getColor(ranking['dir'][idx])).grid()
-                    tkinter.Label(cframe, text = 'Size: ' + str(data['size'][idx]), wraplength = self.thumbnailSize, fg = self._getColor(ranking['size'][idx])).grid()
-                    tkinter.Label(cframe, text = 'Filesize: ' + str(data['filesize'][idx]), wraplength = self.thumbnailSize, fg = self._getColor(ranking['filesize'][idx])).grid()
+                    if mframe.isVideo:
+                        mframe.bind('<Button-3>', self._popup(mframe))
 
-                    # checkbox.append((file, var, button, label))
+                        isThereAnyVideo = True
+
+                    hframe = tkinter.Frame(cframe)
+                    hframe.grid()
+
+                    tkinter.Checkbutton(hframe, text = str(file.name), variable = var, wraplength = self.thumbnailSize, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = 1, sticky = 'w')
+
+                    tkinter.Label(hframe, text = 'Directory:').grid(row = 1, column = 0, sticky = 'e')
+                    tkinter.Label(hframe, text = 'Size:').grid(row = 2, column = 0, sticky = 'e')
+                    tkinter.Label(hframe, text = 'Filesize:').grid(row = 3, column = 0, sticky = 'e')
+
+                    tkinter.Label(hframe, text = str(file.parent), wraplength = self.thumbnailSize, fg = self._getColor(ranking['dir'][idx])).grid(row = 1, column = 1, sticky = 'w')
+                    tkinter.Label(hframe, text = '{} x {}'.format(*data['size'][idx]), wraplength = self.thumbnailSize, fg = self._getColor(ranking['size'][idx])).grid(row = 2, column = 1, sticky = 'w')
+                    tkinter.Label(hframe, text = hurry.filesize.size(data['filesize'][idx]), wraplength = self.thumbnailSize, fg = self._getColor(ranking['filesize'][idx])).grid(row = 3, column = 1, sticky = 'w')
+
+                if isThereAnyVideo:
+                    self._vButtonsFrame.grid()
+                else:
+                    self._vButtonsFrame.grid_remove()
 
 if __name__ == '__main__':
+    from IndexFrame import ImageMap
+
     root = tkinter.Tk()
     root.wait_visibility()
 
-    SelectFrame(root, {'hash': ['dance.gif']}, '.', '.').pack()
+    SelectFrame(root, ImageMap(), '.', '.', command = root.destroy).pack()
     
     root.mainloop()

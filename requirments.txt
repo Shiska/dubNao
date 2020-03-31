@@ -1,5 +1,6 @@
 pillow
 ImageHash
 pysaucenao
-python-slugify
 opencv-python
+python-slugify
+hurry.filesize

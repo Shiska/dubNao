@@ -3,7 +3,7 @@ import pathlib
 import tkinter
 import tkinter.filedialog
 
-class MainFrame(tkinter.Frame):
+class MainFrame(tkinter.Frame): # TODO add ignore button to skip special folders
     dirFile = 'dirs.pkl'
 
     columnDir = 0

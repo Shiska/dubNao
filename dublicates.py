@@ -14,7 +14,7 @@ import tkinter
 import tkinter.ttk
 import tkinter.filedialog
 import tkinter.messagebox
-import saucenao
+# import saucenao
 import pysaucenao
 import imagehash
 import threading
@@ -90,8 +90,6 @@ class Application(tkinter.Tk): # TODO: first index everything -> Selector (moves
             self._setFrame(widgets.IndexFrame, *indexDirs, command = self._select)
 
     def _select(self, imageMap):
-        print(str(imageMap).encode('utf-8'), flush = True)
-
         self._setFrame(widgets.SelectFrame, imageMap, self._dirs[1], *self._dirs[0], command = None)
 
     def _sauceNao(self, *args, **kwargs):
