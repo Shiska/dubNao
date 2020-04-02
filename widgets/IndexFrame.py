@@ -9,6 +9,8 @@ import collections
 import time
 
 class ImageMap():
+    trashDir = pathlib.Path.cwd().joinpath('trash')
+
     def __init__(self, filename: str = 'imageshashes.pkl'):
         self._filename = filename
 
@@ -26,7 +28,9 @@ class ImageMap():
         hash = self.getHash(filename)
 
         if hash:
-            self._data[hash].add(filename)
+            hash = self._data[hash]
+            hash.add(str(filename))
+            hash.discard('__checked__')
 
         return hash
 
@@ -42,26 +46,39 @@ class ImageMap():
                 return str(imagehash.phash(image.convert('RGBA')))
 
     def delete(self, filename: str = None, hash: str = None):
-        if hash:
-            hash = self._data.pop(hash, None)
-
         if filename:
-            hash = self.getHash(filename)
+            if not hash:
+                hash = self.getHash(filename)
 
             if hash:
                 hset = self._data[hash]
+                filename = str(filename)
                 
                 if filename in hset:
                     if len(hset) == 1:
                         del self._data[hash]
                     else:
                         hset.remove(filename)
-
-        return hash
+        elif hash:
+            hash = self._data.pop(hash, None)
 
     def __iter__(self):
-        for key, value in self._data.items():
-            yield key, value
+        for hash, value in list(self._data.items()):
+            if '__checked__' not in value:
+                files = []
+
+                for v in map(pathlib.Path, list(value)):
+                    if not v.exists():
+                        self.delete(filename = v, hash = hash)
+                        self.store()
+                    elif v.parent != self.trashDir:
+                        files.append(str(v))
+
+                if len(files):
+                    yield hash, files
+
+    def __getitem__(self,key):
+        return self._data[key]
 
     def renameFile(self, src, dest):
         src = pathlib.Path(src)
@@ -71,50 +88,59 @@ class ImageMap():
 
             if hash:
                 s = self._data[hash]
-                s.remove(src)
-                s.add(dest)
+                
+                s.remove(str(src))
+                s.add(str(dest))
+                s.add('__checked__')
 
                 src.touch() # update last modification date
-                src.rename(dest)
+                src.replace(dest)
 
-    def moveFileToTrash(self, file):
-        file = pathlib.Path(file)
+    def moveFileTo(self, src: str, dest: str, overwrite: bool = True):
+        src = pathlib.Path(src)
+        dest = pathlib.Path(dest)
+        dest.mkdir(exist_ok = True)
+        dest = dest.joinpath(src.name)
 
-        path = pathlib.Path.cwd().joinpath('trash')
-        path.mkdir(exist_ok = True)
-        path = path.joinpath(file.name)
-
-        if path.exists():
-            name = [path.stem, '-', '0', path.suffix]
+        if not overwrite and dest.exists():
+            name = [dest.stem, '-', '0', dest.suffix]
             idx = 1
 
-            path = path.parent.joinpath(''.join(name))
+            dest = dest.parent.joinpath(''.join(name))
             
-            while path.exists():
+            while dest.exists():
                 name[2] = str(idx)
                 idx = idx + 1
 
-                path = path.parent.joinpath(''.join(name))
+                dest = dest.parent.joinpath(''.join(name))
 
-        self.renameFile(file, path)
+        self.renameFile(src, dest)
 
-        return path
+        return dest
 
+    def moveFileToTrash(self, filename: str):
+        return self.moveFileTo(filename, self.trashDir, overwrite = False)
 
 class IndexFrame(tkinter.Frame):
-    def __init__(self, master, *paths: str, command = None):
+    def __init__(self, master, dirs: set, ignoreDirs: set = set(), command = None):
         super().__init__(master)
 
-        self._dirs = list(paths)
+        self._dirs = set(dirs)
+        self._ignore = set(ignoreDirs)
         self._command = command
         self._files = iter(())
 
-        tkinter.Label(self, text = 'Scanning for files...').grid()
+        frame = tkinter.LabelFrame(self, text = 'Scanning for files')
+        frame.grid_columnconfigure(1, weight = 1)
+        frame.grid(sticky = 'NESW')
 
-        self._dirLabel = tkinter.Label(self)
-        self._dirLabel.grid()
-        self._fileLabel = tkinter.Label(self)
-        self._fileLabel.grid()
+        tkinter.Label(frame, text = 'Directory:').grid(row = 0, column = 0, sticky = 'e')
+        tkinter.Label(frame, text = 'File:').grid(row = 1, column = 0, sticky = 'e')
+
+        self._dirLabel = tkinter.Label(frame)
+        self._dirLabel.grid(row = 0, column = 1, sticky = 'w')
+        self._fileLabel = tkinter.Label(frame)
+        self._fileLabel.grid(row = 1, column = 1, sticky = 'w')
 
         tkinter.Button(self, text = 'Skip', command = self.skip).grid()
 
@@ -143,15 +169,14 @@ class IndexFrame(tkinter.Frame):
 
             dir = self._dirs.pop()
 
-            print(str(dir).encode('utf-8'), flush = True)
+            if not dir in self._ignore:
+                self._files = pathlib.Path(dir).iterdir()
 
-            self._files = pathlib.Path(dir).iterdir()
-
-            self._dirLabel['text'] = dir
-            self._fileLabel['text'] = ''
+                self._dirLabel['text'] = dir
+                self._fileLabel['text'] = ''
         else:
             if file.is_dir():
-                self._dirs.append(file)
+                self._dirs.add(file)
             else:
                 if self._imageMap.add(file):
                     self._fileLabel['text'] = file.name
@@ -162,6 +187,6 @@ if __name__ == '__main__':
     root = tkinter.Tk()
     root.wait_visibility() # necessary otherwise the gui won't show up at all
 
-    IndexFrame(root, str(pathlib.Path(__file__).absolute().parent), command = lambda imageMap: root.destroy()).pack()
+    IndexFrame(root, [str(pathlib.Path(__file__).absolute().parent)], command = lambda imageMap: root.destroy()).pack()
     
     root.mainloop()

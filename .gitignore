@@ -1,5 +1,6 @@
-widgets/__pycache__/
+__pycache__/
 trash/
+dest/
 test/
 env/
 

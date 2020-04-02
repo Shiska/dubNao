@@ -4,7 +4,7 @@ import PIL.Image
 import PIL.ImageTk
 
 class MediaFrame(tkinter.Frame):
-    def __init__(self, master, filename: str, size: tuple = (300, 300), autoplay: bool = True, loop: bool = True):
+    def __init__(self, master, filename: str, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
         super().__init__(master)
 
         self.label = tkinter.Label(self)
@@ -13,15 +13,17 @@ class MediaFrame(tkinter.Frame):
         self.framePos = tkinter.IntVar()
         self.scale = tkinter.Scale(self, orient = tkinter.HORIZONTAL, showvalue = False, variable = self.framePos, command = self._onScaleChanged)
 
+        self._onFrameChange = onFrameChange
         self._video = cv2.VideoCapture()
         self._after = None        
 
+        self.thumbSize = thumbSize
         self.autoplay = autoplay
         self.loop = loop
-        self.size = size
-        self.open(filename)
 
         self.bind = self.label.bind
+        self.bind('<Configure>', self._configure)
+        self.open(filename)
 
     def open(self, filename: str):
         """ filename:
@@ -74,12 +76,30 @@ class MediaFrame(tkinter.Frame):
 
         return ret
 
+    def _configure(self, event):
+        image = self.image.copy()
+        image.thumbnail((self.winfo_width(), self.winfo_height()))
+
+        # print((self.winfo_width(), self.winfo_height()), event, flush = True)
+
+        # self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = image)
+
     def _setImage(self, image):
         image = image.convert('RGB')
-        image.thumbnail(self.size)
 
-        self.thumbnail = image
-        self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = image)
+        thumbnail = image.copy()
+        thumbnail.thumbnail(self.thumbSize)
+
+        self.image = image
+        self.thumbnail = thumbnail
+
+        # image = image.copy()
+        # image.thumbnail((self.winfo_width(), self.winfo_height()))
+
+        self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = thumbnail)
+
+        if self._onFrameChange:
+            self._onFrameChange(self, thumbnail)
 
     def __getitem__(self, index):
         return self.label[index]
@@ -119,6 +139,7 @@ class MediaFrame(tkinter.Frame):
 
     def destroy(self):
         self.stop()
+        self._video.release()
 
         return super().destroy()
 
@@ -135,9 +156,11 @@ class MediaFrame(tkinter.Frame):
         return not self._delay
 
 if __name__ == "__main__":
+    from IndexFrame import ImageMap
+
     root = tkinter.Tk()
 
-    frame = MediaFrame(root, 'dance.gif')
+    frame = MediaFrame(root, str(ImageMap()._data.popitem()[1].pop()))
     frame.pack()
 
     frame.label.bind('<Button-1>', frame.toggle)

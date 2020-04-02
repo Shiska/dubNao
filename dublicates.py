@@ -35,7 +35,7 @@ PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
 # logging.basicConfig(level = logging.DEBUG)
 
-class Application(tkinter.Tk): # TODO: first index everything -> Selector (moves files to saucenao while showing dublicates) -> saucenao
+class Application(tkinter.Tk):
     def __init__(self):
         super().__init__()
 
@@ -65,7 +65,7 @@ class Application(tkinter.Tk): # TODO: first index everything -> Selector (moves
             self._frame.destroy()
 
         self._frame = func(self._sframe, *args, **kwargs)
-        self._frame.grid(row = 0)
+        self._frame.grid(row = 0, sticky = 'nesw')
 
         return self._frame
         
@@ -77,8 +77,8 @@ class Application(tkinter.Tk): # TODO: first index everything -> Selector (moves
 
         # return widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2)
 
-    def _index(self, indexDirs, selectDirs, sauceNaoDir, destDir):
-        print(str((indexDirs, selectDirs, sauceNaoDir, destDir)), flush = True)
+    def _index(self, indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir):
+        print(str((indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir)), flush = True)
 
         self._dirs = (selectDirs, sauceNaoDir, destDir)
 
@@ -87,10 +87,21 @@ class Application(tkinter.Tk): # TODO: first index everything -> Selector (moves
         elif len(destDir) == 0:
             tkinter.messagebox.showwarning('Warning', 'Dest not selected!')
         else:
-            self._setFrame(widgets.IndexFrame, *indexDirs, command = self._select)
+            self._setFrame(widgets.IndexFrame, indexDirs, ignoreDirs, command = self._select)
 
     def _select(self, imageMap):
-        self._setFrame(widgets.SelectFrame, imageMap, self._dirs[1], *self._dirs[0], command = None)
+        self._imageMap = imageMap
+
+        select = [pathlib.Path(s).absolute() for s in self._dirs[0]]
+        items = {key: [v for v in value if any(p in select for p in pathlib.Path(v).parents)] for key, value in imageMap}
+        items = {key: value for key, value in items.items() if len(value)}
+
+        self._setFrame(widgets.SelectFrame, imageMap, items, self._dirs[1], command = self._dublicates)
+
+    def _dublicates(self):
+        items = {key: value for key, value in self._imageMap if len(value) > 1}
+
+        self._setFrame(widgets.SelectFrame, self._imageMap, items, command = None)
 
     def _sauceNao(self, *args, **kwargs):
         print(str(args), str(kwargs), flush = True)
