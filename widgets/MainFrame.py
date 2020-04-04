@@ -232,6 +232,6 @@ class MainFrame(tkinter.Frame):
 if __name__ == '__main__':
     root = tkinter.Tk()
 
-    MainFrame(root).pack()
+    MainFrame(root).pack(expand = True, fill = tkinter.BOTH)
 
     root.mainloop()

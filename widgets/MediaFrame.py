@@ -4,7 +4,7 @@ import PIL.Image
 import PIL.ImageTk
 
 class MediaFrame(tkinter.Frame):
-    def __init__(self, master, filename: str, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
+    def __init__(self, master, filename: str = None, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
         super().__init__(master)
 
         self.label = tkinter.Label(self)
@@ -22,8 +22,10 @@ class MediaFrame(tkinter.Frame):
         self.loop = loop
 
         self.bind = self.label.bind
-        self.bind('<Configure>', self._configure)
-        self.open(filename)
+        # self.bind('<Configure>', self._configure)
+
+        if filename:
+            self.open(filename)
 
     def open(self, filename: str):
         """ filename:
@@ -34,14 +36,16 @@ class MediaFrame(tkinter.Frame):
         """
         self._delay = None
         self.scale.pack_forget()
-
         self._video.open(filename)
 
-        if not self._video.isOpened():
+        isOpened = self._video.isOpened()
+
+        if isOpened: # file was opened, check if first frame is readable
+            isOpened = self._nextFrame()
+
+        if not isOpened:
             self._setImage(PIL.Image.open(filename))
         else:
-            self.reset()
-
             frame_count = self._video.get(cv2.CAP_PROP_FRAME_COUNT)
 
             if frame_count > 1:
@@ -69,7 +73,6 @@ class MediaFrame(tkinter.Frame):
 
         if ret:
             self.framePos.set(self._video.get(cv2.CAP_PROP_POS_FRAMES) - 1)
-
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             self._setImage(PIL.Image.fromarray(frame))
@@ -77,29 +80,35 @@ class MediaFrame(tkinter.Frame):
         return ret
 
     def _configure(self, event):
-        image = self.image.copy()
-        image.thumbnail((self.winfo_width(), self.winfo_height()))
+        # image = self.image.copy()
+        # image.thumbnail((self.winfo_width(), self.winfo_height()))
+
+        oldmaster = newmaster = self.master
+
+        while newmaster:
+            oldmaster = newmaster
+            newmaster = getattr(newmaster, 'master', None)
 
         # print((self.winfo_width(), self.winfo_height()), event, flush = True)
+        # help(self)
+        # print((self.winfo_screenwidth() * 3 // 4, self.winfo_screenheight() * 3 // 4), event, flush = True)
+        # print((oldmaster.winfo_width(), oldmaster.winfo_height()), event, flush = True)
 
         # self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = image)
 
     def _setImage(self, image):
-        image = image.convert('RGB')
+        image = self._image = image.convert('RGB')
 
-        thumbnail = image.copy()
+        thumbnail = self._thumbnail = image.copy()
         thumbnail.thumbnail(self.thumbSize)
 
-        self.image = image
-        self.thumbnail = thumbnail
-
-        # image = image.copy()
-        # image.thumbnail((self.winfo_width(), self.winfo_height()))
-
-        self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = thumbnail)
+        self._setPhoto(thumbnail)
 
         if self._onFrameChange:
             self._onFrameChange(self, thumbnail)
+
+    def _setPhoto(self, photo):
+        self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = photo)
 
     def __getitem__(self, index):
         return self.label[index]
@@ -159,6 +168,10 @@ if __name__ == "__main__":
     from IndexFrame import ImageMap
 
     root = tkinter.Tk()
+    
+    # help(root)
+    
+    # exit()
 
     frame = MediaFrame(root, str(ImageMap()._data.popitem()[1].pop()))
     frame.pack()

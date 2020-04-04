@@ -147,7 +147,7 @@ class IndexFrame(tkinter.Frame):
         self._imageMap = ImageMap()
         self._after = self.after_idle(self.process)
 
-        self.bind('<Configure>', lambda event: self.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
+        # self.bind('<Configure>', lambda event: self.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
     def skip(self):
         if self._after:

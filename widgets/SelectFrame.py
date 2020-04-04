@@ -27,25 +27,21 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
         super().__init__(master)
 
         self.command = command
-        self._diffFrame = False
 
         self._imageMap = imageMap
         self._items = dict(items)
         self._dest = pathlib.Path(dest).absolute() if dest else None
 
-        keyFrame = tkinter.LabelFrame(self)
-        keyFrame.pack(expand = True, fill = tkinter.Y)
-
-        self._frame = tkinter.Frame(keyFrame)
-
         frame = tkinter.Frame(self)
-        frame.pack()
-        
+        frame.grid()
+
         tkinter.Button(frame, text = 'Next', command = self._onNext).grid(row = 0, column = 0)
         tkinter.Button(frame, text = 'Skip', command = self.showNext).grid(row = 0, column = 1)
+        tkinter.Button(frame, text = 'Difference', command = self._onDiff).grid(row = 0, column = 2)
+        tkinter.Button(frame, text = 'Delete', command = self._deleteAll).grid(row = 0, column = 3)
 
-        self._vButtonsFrame = tkinter.Frame(frame)
-        self._vButtonsFrame.grid(row = 0, column = 2)
+        self._vButtonsFrame = tkinter.Frame(self)
+        self._vButtonsFrame.grid()
 
         tkinter.Button(self._vButtonsFrame, text = 'Start', command = self._startAll).grid(row = 0, column = 0)
         tkinter.Button(self._vButtonsFrame, text = 'Stop', command = self._stopAll).grid(row = 0, column = 1)
@@ -56,12 +52,16 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
         self._menu.add_command(label = 'Stop', command = lambda: self._menu._mframe.stop())
         self._menu.add_command(label = 'Reset', command = lambda: self._menu._mframe.reset())
 
-        tkinter.Button(frame, text = 'Difference', command = self._onDiff).grid(row = 0, column = 3)
-        tkinter.Button(frame, text = 'Delete', command = self._deleteAll).grid(row = 0, column = 4)
+        keyFrame = tkinter.LabelFrame(self)
+        keyFrame.grid()
+
+        self._frame = tkinter.Frame(keyFrame)
 
         self.showNext()
 
     def _newFrame(self, text: str):
+        self._inFrame = self._diffFrame = None
+
         master = self._frame.master
 
         master['text'] = text
@@ -87,28 +87,15 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
 
         return (diffImage, max(d for data in diffImage.getdata() for d in data))
 
-    @classmethod
-    def getFileData(cls, files) -> dict:
+    def getFileData(self) -> dict:
         data = dict()
 
-        data['file'] = list(map(pathlib.Path, files))
-        data['image'] = list(map(PIL.Image.open, data['file']))
-        data['thumbnail'] = [i.convert('RGB') for i in data['image']]
-
-        size = (cls.thumbnailSize, cls.thumbnailSize)
-
-        [t.thumbnail(size) for t in data['thumbnail']]
-
-        data['size'] = [i.size for i in data['image']]
+        data['frame'] = frames = [mediaFrame for _, mediaFrame in self.iterImages()]
+        data['file'] = [f._file for f in frames]
+        data['size'] = [f._image.size for f in frames]
         data['filesize'] = [f.stat().st_size for f in data['file']]
+        data['difference'] = [f._difference for f in frames]
 
-        if len(data['thumbnail']):
-            firstThumbnail = data['thumbnail'][0]
-
-            data['difference'] = [cls.getDifference(firstThumbnail, t)[1] for t in data['thumbnail']]
-        else:
-            data['difference'] = []
-        
         return data
 
     def _preselectCheckbox(self, data):
@@ -158,26 +145,44 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
         return cls.colors.get(idx, 'black')
 
     def iterImages(self):
-        for rframe in self._frame.grid_slaves():
-            for cframe in rframe.grid_slaves():
-                mediaLabel = cframe.grid_slaves(row = 0)[0]
+        (columns, _) = self._frame.grid_size()
 
-                yield mediaLabel, mediaLabel.grid_slaves()[0]
+        for c in range(columns):
+            mediaLabel = self._frame.grid_slaves(row = 2, column = c)[0]
+
+            yield mediaLabel, mediaLabel.grid_slaves()[0]
+
+    def _resizeImage(self, image):
+        if image.width > image.height:
+            return image.resize((self.thumbnailSize, self.thumbnailSize * image.height // image.width))
+
+        return image.resize((self.thumbnailSize * image.width // image.height, self.thumbnailSize))
 
     def _setDiffImages(self, frame):
-        thumbnail = frame.thumbnail
+        thumbnail = self._resizeImage(frame._image)
 
         for mediaLabel, mediaFrame in self.iterImages():
-            (diffImage, difference) = self.getDifference(thumbnail, mediaFrame.thumbnail)
+            (diffImage, difference) = self.getDifference(thumbnail, self._resizeImage(mediaFrame._image))
 
             mediaFrame['image'] = mediaFrame.diff = PIL.ImageTk.PhotoImage(diffImage)
             mediaLabel['text'] = 'Difference: ' + str(difference)
+            mediaFrame._difference = difference
 
     def _onEnterImage(self, frame):
         def enter(event):
             if self._diffFrame:
                 self._diffFrame = frame
                 self._setDiffImages(frame)
+            else:
+                if self._inFrame:
+                    self._inFrame._setPhoto(self._inFrame._thumbnail)
+
+                self._inFrame = frame
+
+                image = frame._image.copy()
+                image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
+
+                frame._setPhoto(image)
 
         return enter
 
@@ -199,7 +204,20 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
                 (diffImage, difference) = self.getDifference(self._diffFrame.thumbnail, thumbnail)
 
                 mframe['image'] = mframe.diff = PIL.ImageTk.PhotoImage(diffImage)
-                mframe.master['text'] = 'Difference: ' + str(difference)                
+                mframe.master['text'] = 'Difference: ' + str(difference)
+        elif self._inFrame:
+            image = self._inFrame._image.copy()
+            image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
+
+            self._inFrame._setPhoto(image)
+
+    def _onLeaveImage(self, event):
+        def leave():
+            if self._inFrame:
+                self._inFrame._setPhoto(self._inFrame.thumbnail)
+                self._inFrame = None
+
+        # self.after_idle(leave)
 
     def _popup(self, mframe):
         def popup(event):
@@ -255,32 +273,19 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
             (key, self._files) = self._items.popitem()
 
             isThereAnyVideo = False
-            data = self.getFileData(self._imageMap[key])
-            ranking = self.groupData(data)
-            selected = self._preselectCheckbox(data)
+            wrap = self.thumbnailSize * 3 // 4
             frame = self._newFrame(key + ' (' + str(remaining - 1) + ' remaining)')
 
-            for idx, file in enumerate(data['file']):
-                column = idx % self.maxImagesPerRow
-            
-                if column == 0:
-                    rframe = tkinter.LabelFrame(frame, text = 'hi')
-                    rframe.grid(row = (idx // self.maxImagesPerRow), column = 0, sticky = 'nesw')
-
-                cframe = tkinter.Frame(rframe)
-                cframe.grid(row = 0, column = column, padx = 1, pady = 1)
-
-                var = tkinter.BooleanVar()
-                var.set(selected == None or selected == idx)
-                
-                lframe = tkinter.LabelFrame(cframe, text = 'Difference: ' + str(data['difference'][idx]))
+            for idx, file in enumerate(map(pathlib.Path, self._imageMap[key])):
+                lframe = tkinter.LabelFrame(frame)
                 lframe.columnconfigure(0, minsize = self.thumbnailSize + 10)
                 lframe.rowconfigure(0, minsize = self.thumbnailSize + 10)
-                lframe.grid()
+                lframe.grid(row = 2, column = idx)
 
                 mframe = MediaFrame(lframe, str(file), (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
+                mframe._var = tkinter.BooleanVar()
+                mframe._column = idx
                 mframe._file = file
-                mframe._var = var
                 mframe.grid()
 
                 def openFile(file):
@@ -292,17 +297,36 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
                 mframe.bind('<Button-1>', openFile(file))
                 mframe.bind('<Enter>', self._onEnterImage(mframe))
 
+                # mframe.bind('<Leave>', self._onLeaveImage)
+
                 if mframe.isVideo:
                     mframe.bind('<Button-3>', self._popup(mframe))
 
                     isThereAnyVideo = True
 
-                hframe = tkinter.Frame(cframe)
-                hframe.grid()
+            if isThereAnyVideo:
+                self._vButtonsFrame.grid()
+            else:
+                self._vButtonsFrame.grid_remove()
 
-                wrap = self.thumbnailSize * 3 // 4
+            self._onDiff()
+            self._onDiff()
 
-                tkinter.Checkbutton(hframe, text = str(file.name), variable = var, wraplength = wrap, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = 1, sticky = 'w')
+            data = self.getFileData()
+            ranking = self.groupData(data)
+            selected = self._preselectCheckbox(data)
+
+            for mediaFrame in data['frame']:
+                idx = mediaFrame._column
+                file = mediaFrame._file
+                var = mediaFrame._var
+
+                var.set(selected == None or selected == idx)
+
+                tkinter.Checkbutton(frame, text = str(file.name), variable = var, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = idx)
+
+                hframe = tkinter.Frame(frame)
+                hframe.grid(row = 1, column = idx)
 
                 tkinter.Label(hframe, text = 'Directory:').grid(row = 1, column = 0, sticky = 'e')
                 tkinter.Label(hframe, text = 'Size:').grid(row = 2, column = 0, sticky = 'e')
@@ -310,12 +334,9 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
 
                 tkinter.Label(hframe, text = str(file.parent), wraplength = wrap, fg = self._getColor(ranking['dir'][idx])).grid(row = 1, column = 1, sticky = 'w')
                 tkinter.Label(hframe, text = '{} x {}'.format(*data['size'][idx]), wraplength = wrap, fg = self._getColor(ranking['size'][idx])).grid(row = 2, column = 1, sticky = 'w')
-                tkinter.Label(hframe, text = hurry.filesize.size(data['filesize'][idx]), wraplength = wrap, fg = self._getColor(ranking['filesize'][idx])).grid(row = 3, column = 1, sticky = 'w')
+                tkinter.Label(hframe, text = str(data['filesize'][idx]), wraplength = wrap, fg = self._getColor(ranking['filesize'][idx])).grid(row = 3, column = 1, sticky = 'w')
 
-            if isThereAnyVideo:
-                self._vButtonsFrame.grid()
-            else:
-                self._vButtonsFrame.grid_remove()
+            self._onEnterImage(data['frame'][[key for key, value in ranking['size'].items() if value == 0][0]])(None)
 
 if __name__ == '__main__':
     from IndexFrame import ImageMap

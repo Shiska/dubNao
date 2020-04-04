@@ -40,34 +40,27 @@ class Application(tkinter.Tk):
         super().__init__()
 
         # self.loop = asyncio.get_event_loop()
-        # self.attributes("-fullscreen", True)
+        self.attributes("-fullscreen", True)
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
-        # self.menubar.add_command(label = 'Quit', command = self.destroy)
+        self.menubar.add_command(label = 'Quit', command = self.destroy)
 
         # display the menu
         self.config(menu = self.menubar)
 
-        self._sframe = widgets.ScrollableFrame(self)
-        self._sframe.pack(expand = True, fill = tkinter.Y)
-        self._frame = None
+        sframe = widgets.ScrollableFrame(self)
+        sframe.pack(expand = True, fill = tkinter.BOTH)
 
+        self._frame = tkinter.Frame(sframe)
         self._mainFrame()
 
-        # tkinter.Button(self._sframe, text = 'Quit', command = self.destroy).grid(row = 99, column = 99)
-
-    def _mainFrame(self):
-        self._setFrame(widgets.MainFrame, command = self._index)
-
     def _setFrame(self, func, *args, **kwargs):
-        if self._frame:
-            self._frame.destroy()
+        master = self._frame.master
 
-        self._frame = func(self._sframe, *args, **kwargs)
-        self._frame.grid(row = 0, sticky = 'nesw')
-
-        return self._frame
+        self._frame.destroy()
+        self._frame = func(master, *args, **kwargs)
+        self._frame.pack(expand = True, fill = tkinter.BOTH)
         
         # self.frame = widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
         # self.frame.pack(expand = True, fill = tkinter.BOTH)
@@ -77,9 +70,10 @@ class Application(tkinter.Tk):
 
         # return widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2)
 
-    def _index(self, indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir):
-        print(str((indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir)), flush = True)
+    def _mainFrame(self):
+        self._setFrame(widgets.MainFrame, command = self._index)
 
+    def _index(self, indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir):
         self._dirs = (selectDirs, sauceNaoDir, destDir)
 
         if len(sauceNaoDir) == 0:

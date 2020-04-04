@@ -45,9 +45,17 @@ class ScrollableFrame(tkinter.Frame):
 
         window = canvas.create_window(0, 0, anchor = tkinter.NW, window = iframe)
         # expand inner frame to canvas but never smaller then content
-        canvas.bind('<Configure>', lambda event: canvas.itemconfig(window, width = max(self.winfo_width(), event.width), height = max(self.winfo_height(), event.height)))
+        def configure(event):
+            canvas.itemconfig(window, width = max(self.winfo_width(), event.width), height = max(self.winfo_height(), event.height))
+
+        oframe.bind('<Configure>', configure)
         # set canvas size and scrollregion to content size
-        self.bind('<Configure>', lambda event: canvas.config(width = event.width, height = event.height, scrollregion = (0, 0, event.width, event.height)))
+        def configure(event):
+            # print('self', event, flush = True)
+
+            canvas.config(width = event.width, height = event.height, scrollregion = (0, 0, event.width, event.height))
+
+        self.bind('<Configure>', configure)
         # set class pack managers to outer frame managers
         self.grid = oframe.grid
         self.pack = oframe.pack
