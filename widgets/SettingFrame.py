@@ -11,14 +11,14 @@ class TextLabel(tkinter.Text):
         self.insert(1.0, text)
         self.configure(state = 'disabled')
 
-class SettingFrame(tkinter.Frame):
+class SettingFrame(tkinter.LabelFrame):
     dirFile = 'settings.pkl'
 
     column = ('Dir', 'Index', 'Select', 'Ignore', 'Delete')
     column = type('Enum', (), dict((v, i) for i, v in enumerate(column)))
 
     def __init__(self, master, confirmcommand = None, cancelcommand = None): # todo change into settings, add saucenao and select folder line, use default folders in python directory
-        super().__init__(master)
+        super().__init__(master, text = 'Settings')
 
         self.confirmcommand = confirmcommand
         self.cancelcommand = cancelcommand
@@ -280,7 +280,7 @@ class SettingFrame(tkinter.Frame):
 
     @staticmethod
     def _getRootFolders(folders: set):
-        folders = list(map(pathlib.Path, folders))
+        folders = [pathlib.Path(f).resolve() for f in folders]
 
         for f in folders:
             folders = [x for x in folders if f not in list(x.parents)]
@@ -302,6 +302,6 @@ if __name__ == '__main__':
         root.after_idle(root.destroy)
         return True
 
-    SettingFrame(root, confirmcommand = confirm, cancelcommand = root.destroy).pack(expand = True, fill = tkinter.BOTH)
+    SettingFrame(root, confirmcommand = confirm, cancelcommand = root.destroy).pack(fill = tkinter.BOTH)
 
     root.mainloop()

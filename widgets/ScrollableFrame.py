@@ -41,19 +41,21 @@ class ScrollableFrame(tkinter.Frame):
         iframe = tkinter.Frame(canvas)
 
         super().__init__(iframe)
-        self.pack()
+
+        self.pack(fill = tkinter.BOTH)
 
         window = canvas.create_window(0, 0, anchor = tkinter.NW, window = iframe)
         # expand inner frame to canvas but never smaller then content
         def configure(event):
-            canvas.itemconfig(window, width = max(self.winfo_width(), event.width), height = max(self.winfo_height(), event.height))
+            canvas.itemconfig(window, width = max(self.winfo_reqwidth(), event.width), height = max(self.winfo_reqheight(), event.height))
 
         oframe.bind('<Configure>', configure)
         # set canvas size and scrollregion to content size
         def configure(event):
-            # print('self', event, flush = True)
+            width = self.winfo_reqwidth()
+            height = self.winfo_reqheight()
 
-            canvas.config(width = event.width, height = event.height, scrollregion = (0, 0, event.width, event.height))
+            canvas.config(width = width, height = height, scrollregion = (0, 0, width, height))
 
         self.bind('<Configure>', configure)
         # set class pack managers to outer frame managers
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     root = tkinter.Tk()
 
     frame = ScrollableFrame(root)
-    frame.pack(expand = True, fill = tkinter.BOTH)
+    frame.pack(fill = tkinter.BOTH)
 
     MediaFrame.MediaFrame(frame, str(ImageMap()._data.popitem()[1].pop())).pack()
     

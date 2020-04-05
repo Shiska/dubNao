@@ -68,7 +68,7 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
 
         self._frame.destroy()
         self._frame = tkinter.Frame(master)
-        self._frame.pack(expand = True, fill = tkinter.BOTH)
+        self._frame.pack(fill = tkinter.BOTH)
 
         return self._frame
 
@@ -349,7 +349,7 @@ if __name__ == '__main__':
     from ScrollableFrame import ScrollableFrame
     
     frame = ScrollableFrame(root)
-    frame.pack(expand = True, fill = tkinter.BOTH)
+    frame.pack(fill = tkinter.BOTH)
 
     SelectFrame(frame, imageMap, {k: v for k, v in imageMap}, 'dest', command = root.destroy).pack()
 

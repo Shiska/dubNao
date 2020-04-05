@@ -38,6 +38,7 @@ PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 class Application(tkinter.Tk):
     def __init__(self):
         super().__init__()
+        self.wait_visibility() # necessary otherwise the gui won't show up at all
 
         # self.loop = asyncio.get_event_loop()
         self.attributes("-fullscreen", True)
@@ -51,7 +52,7 @@ class Application(tkinter.Tk):
         self.config(menu = self.menubar)
 
         sframe = widgets.ScrollableFrame(self)
-        sframe.pack(expand = True, fill = tkinter.BOTH)
+        sframe.pack(fill = tkinter.BOTH)
 
         self._settings = widgets.SettingFrame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
 
@@ -70,7 +71,7 @@ class Application(tkinter.Tk):
 
         self._frame.destroy()
         self._frame = func(master, *args, **kwargs)
-        self._frame.pack(expand = True, fill = tkinter.BOTH)
+        self._frame.pack(fill = tkinter.BOTH)
         
         # self.frame = widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2, 0)
         # self.frame.pack(expand = True, fill = tkinter.BOTH)
@@ -82,7 +83,7 @@ class Application(tkinter.Tk):
 
     def _showSettings(self):
         self._frame.pack_forget()
-        self._settings.pack()
+        self._settings.pack(fill = tkinter.BOTH)
 
     def _checkSettings(self):
         if not self._settings.sauceNaoDir:
@@ -103,27 +104,17 @@ class Application(tkinter.Tk):
         self._settings.pack_forget()
         self._frame.pack()
 
-    def _mainFrame(self):
-        self._setFrame(widgets.MainFrame)
-
-    def _index(self, indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir):
-        self._dirs = (selectDirs, sauceNaoDir, destDir)
-
-        if len(sauceNaoDir) == 0:
-            tkinter.messagebox.showwarning('Warning', 'SauceNao not selected!')
-        elif len(destDir) == 0:
-            tkinter.messagebox.showwarning('Warning', 'Dest not selected!')
-        else:
-            self._setFrame(widgets.IndexFrame, indexDirs, ignoreDirs, command = self._select)
+    def _index(self):
+        self._setFrame(widgets.IndexFrame, self._settings.indexDirs, self._settings.ignoreDirs, command = self._select)
 
     def _select(self, imageMap):
         self._imageMap = imageMap
+        select = self._settings.selectDirs
 
-        select = [pathlib.Path(s).absolute() for s in self._dirs[0]]
         items = {key: [v for v in value if any(p in select for p in pathlib.Path(v).parents)] for key, value in imageMap}
         items = {key: value for key, value in items.items() if len(value)}
 
-        self._setFrame(widgets.SelectFrame, imageMap, items, self._dirs[1], command = self._dublicates)
+        self._setFrame(widgets.SelectFrame, imageMap, items, self._settings.sauceNaoDir, command = self._dublicates)
 
     def _dublicates(self):
         items = {key: value for key, value in self._imageMap if len(value) > 1}
