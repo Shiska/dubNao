@@ -44,6 +44,7 @@ class Application(tkinter.Tk):
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
+        self.menubar.add_command(label = 'Settings', command = self._showSettings)
         self.menubar.add_command(label = 'Quit', command = self.destroy)
 
         # display the menu
@@ -52,8 +53,17 @@ class Application(tkinter.Tk):
         sframe = widgets.ScrollableFrame(self)
         sframe.pack(expand = True, fill = tkinter.BOTH)
 
+        self._settings = widgets.SettingFrame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
+
         self._frame = tkinter.Frame(sframe)
-        self._mainFrame()
+        self._frame.pack()
+
+        tkinter.Label(self._frame, text = 'Hello World').pack()
+
+        # frame = widgets.SettingFrame(sframe)
+        # frame.pack()
+
+        # self._index()
 
     def _setFrame(self, func, *args, **kwargs):
         master = self._frame.master
@@ -70,8 +80,31 @@ class Application(tkinter.Tk):
 
         # return widgets.ScrollableFrame(self, self.winfo_screenwidth() / 2)
 
+    def _showSettings(self):
+        self._frame.pack_forget()
+        self._settings.pack()
+
+    def _checkSettings(self):
+        if not self._settings.sauceNaoDir:
+            tkinter.messagebox.showwarning('Warning', 'SauceNao directory not set!')
+        elif not self._settings.selectDir:
+            tkinter.messagebox.showwarning('Warning', 'Select directory not set!')
+        elif not self._settings.trashDir:
+            tkinter.messagebox.showwarning('Warning', 'Trash directory not set!')
+        elif not self._settings.destDir:
+            tkinter.messagebox.showwarning('Warning', 'Dest directory not set!')
+        else:
+            self._hideSettings()
+            return True
+
+        return False
+
+    def _hideSettings(self):
+        self._settings.pack_forget()
+        self._frame.pack()
+
     def _mainFrame(self):
-        self._setFrame(widgets.MainFrame, command = self._index)
+        self._setFrame(widgets.MainFrame)
 
     def _index(self, indexDirs, selectDirs, ignoreDirs, sauceNaoDir, destDir):
         self._dirs = (selectDirs, sauceNaoDir, destDir)

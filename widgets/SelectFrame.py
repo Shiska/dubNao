@@ -12,7 +12,7 @@ import PIL.ImageChops
 from MediaFrame import MediaFrame
 
 class SelectFrame(tkinter.Frame): #todo get frames after images were created, instead of getting the thumbnail twice!
-    thumbnailSize = 300
+    thumbnailSize = 300 # maybe: move all 'selected' files into a 'select' folder to speed up indexing
     maxImagesPerRow = 6
 
     colors = dict(enumerate([
