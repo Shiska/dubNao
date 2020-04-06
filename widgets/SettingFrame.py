@@ -66,6 +66,7 @@ class SettingFrame(tkinter.LabelFrame):
         frame.pack(fill = tkinter.X)
 
         tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).pack()
+        tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = self._duplicates).pack()
 
         frame = tkinter.Frame(self)
         frame.pack(fill = tkinter.X)
@@ -76,17 +77,23 @@ class SettingFrame(tkinter.LabelFrame):
     @classmethod
     def _load(cls):
         with open(cls.dirFile, 'rb') as file:
-            return pickle.load(file)
+            data = pickle.load(file)
+
+        (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart, duplicates) = data
+
+        cls._duplicates.set(duplicates)
+        cls._autostart.set(autostart)
 
     @classmethod
     def _store(cls):
         with open(cls.dirFile, 'wb') as file:
-            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart), file)
+            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart, cls.duplicates), file)
 
     @classmethod
     def _init(cls):
         cls._init = lambda *args: None
 
+        cls._duplicates = tkinter.BooleanVar()
         cls._autostart = tkinter.BooleanVar()
         cls._sauceNao = tkinter.StringVar()
         cls._select = tkinter.StringVar()
@@ -94,22 +101,20 @@ class SettingFrame(tkinter.LabelFrame):
         cls._dest = tkinter.StringVar()
 
         if pathlib.Path(cls.dirFile).is_file():
-            (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart) = cls._load()
-
-            cls._autostart.set(autostart)
+            cls._load()
         else:
             cwd = pathlib.Path.cwd()
 
             cls._directories = dict()
-            cls._autostart._bool = False
             cls._sauceNao._dir = cwd.joinpath('sauceNao')
             cls._select._dir = cwd.joinpath('select')
             cls._trash._dir = cwd.joinpath('trash')
-            cls._dest._dir = ''
+            cls._dest._dir = cwd.joinpath('dest')
 
             pathlib.Path.mkdir(cls._sauceNao._dir, exist_ok = True)
             pathlib.Path.mkdir(cls._select._dir, exist_ok = True)
             pathlib.Path.mkdir(cls._trash._dir, exist_ok = True)
+            pathlib.Path.mkdir(cls._dest._dir, exist_ok = True)
 
             cls._sauceNao._dir = str(cls._sauceNao._dir)
             cls._select._dir = str(cls._select._dir)
@@ -129,11 +134,7 @@ class SettingFrame(tkinter.LabelFrame):
         if self.cancelcommand:
             self.cancelcommand()
 
-        (dirs, self._sauceNao._dir, self._select._dir, self._trash._dir, self._dest._dir, autostart) = self._load()
-
-        self._directories.clear()
-        self._directories.update(dirs)
-        self._autostart.set(autostart)
+        self._load()
 
     def _setDir(self, variable, dir):
         path = pathlib.Path(dir)
@@ -262,6 +263,9 @@ class SettingFrame(tkinter.LabelFrame):
 
             return super().__get__(instance, owner)()
 
+    @classproperty
+    def duplicates(cls):
+        return cls._duplicates.get()
     @classproperty
     def autostart(cls):
         return cls._autostart.get()

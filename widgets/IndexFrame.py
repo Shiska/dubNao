@@ -12,10 +12,9 @@ sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
 from SettingFrame import SettingFrame
 
 class ImageMap():
-    trashDir = pathlib.Path.cwd().joinpath('trash')
-
     def __init__(self, filename: str = 'imageshashes.pkl'):
         self._filename = filename
+        self._trashDir = pathlib.Path(SettingFrame.trashDir)
 
         if pathlib.Path(filename).is_file():
             with open(filename, 'rb') as file:
@@ -79,7 +78,7 @@ class ImageMap():
                 if not v.exists():
                     self.delete(filename = v, hash = hash)
                     self.store()
-                elif v.parent != self.trashDir:
+                elif v.parent != self._trashDir:
                     files.append(str(v))
 
             if len(files):
@@ -106,7 +105,7 @@ class ImageMap():
     def moveFileTo(self, src: str, dest: str, overwrite: bool = False):
         src = pathlib.Path(src)
         dest = pathlib.Path(dest)
-        dest.mkdir(exist_ok = True)
+        dest.mkdir(parents = True, exist_ok = True)
         dest = dest.joinpath(src.name)
 
         if not overwrite and dest.exists():
@@ -126,7 +125,7 @@ class ImageMap():
         return dest
 
     def moveFileToTrash(self, filename: str):
-        return self.moveFileTo(filename, self.trashDir)
+        return self.moveFileTo(filename, self._trashDir)
 
 class IndexFrame(tkinter.Frame):
     def __init__(self, master, command = None):
@@ -135,10 +134,8 @@ class IndexFrame(tkinter.Frame):
         self._init()
         self._command = command
 
-        self.grid_columnconfigure(0, weight = 1)
-
         oframe = tkinter.Frame(self)
-        oframe.grid() # additional frame to avoid expansion
+        oframe.pack()
 
         frame = tkinter.LabelFrame(oframe, text = 'Scanning for files')
         frame.grid_columnconfigure(1, weight = 1)

@@ -2,6 +2,9 @@ import cv2
 import tkinter
 import PIL.Image
 import PIL.ImageTk
+import PIL.ImageFile
+
+PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
 class MediaFrame(tkinter.Frame):
     def __init__(self, master, filename: str = None, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
@@ -146,9 +149,12 @@ class MediaFrame(tkinter.Frame):
     def reset(self):
         self._setFrame(0)
 
-    def destroy(self):
+    def release(self):
         self.stop()
         self._video.release()
+
+    def destroy(self):
+        self.release()
 
         return super().destroy()
 

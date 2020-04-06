@@ -32,6 +32,7 @@ class SelectFrame(tkinter.Frame):
         self.command = command
 
         self._imageMap =  IndexFrame.imageMap
+        self._destDir = pathlib.Path(SettingFrame.destDir)
         self._selectDir = pathlib.Path(SettingFrame.selectDir)
         self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
 
@@ -44,7 +45,7 @@ class SelectFrame(tkinter.Frame):
         self._items = {key: value for key, value in ((key, {v for v in value if any(p in selectDirs for p in pathlib.Path(v).parents)}) for key, value in self._imageMap) if len(value)}
 
         oframe = tkinter.Frame(self)
-        oframe.grid() # additional frame to avoid expansion
+        oframe.grid()
 
         frame = tkinter.LabelFrame(oframe, text = 'Moving files')
         frame.grid_columnconfigure(1, weight = 1)
@@ -60,7 +61,7 @@ class SelectFrame(tkinter.Frame):
 
         frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
-        ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), pathlib.Path(SettingFrame.destDir))
+        ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), self._destDir)
 
         def moveFiles():
             remaining = len(self._items)
@@ -89,7 +90,11 @@ class SelectFrame(tkinter.Frame):
         self.after_idle(moveFiles)
 
     def _initSelect(self):
-        self._items = {key: value for key, value in ((key, {v for v in value if self._selectDir in pathlib.Path(v).parents}) for key, value in self._imageMap) if len(value)}
+        if SettingFrame.duplicates:
+            self._items = {key: value for key, value in self._imageMap if len(value) > 1}
+            self._items.update({key: value for key, value in self._imageMap if len(value) == 1 and self._selectDir in pathlib.Path(value[0]).parents})
+        else:
+            self._items = {key: value for key, value in ((key, {v for v in value if self._selectDir in pathlib.Path(v).parents}) for key, value in self._imageMap) if len(value)}
 
         frame = tkinter.Frame(self)
         frame.grid()
@@ -169,11 +174,8 @@ class SelectFrame(tkinter.Frame):
                 maxsize = max(sizes)
                 victims = [victims[idx] for idx, size in enumerate(sizes) if size == maxsize]
 
-                if len(victims) > 1 and self._sauceNaoDir:
-                    newvictims = [idx for idx in victims if data['file'][idx].parent == self._sauceNaoDir]
-
-                    if len(newvictims): # if 0 all are in search path so use old victims
-                        victims = newvictims
+                if len(victims) > 1:
+                    victims = [idx for idx in victims if data['file'][idx].parent != self._destDir]
 
             selectIdx = victims[0]
 
@@ -264,19 +266,11 @@ class SelectFrame(tkinter.Frame):
 
                 mframe['image'] = mframe.diff = PIL.ImageTk.PhotoImage(diffImage)
                 mframe.master['text'] = 'Difference: ' + str(difference)
-        elif self._inFrame:
+        elif self._inFrame == mframe:
             image = self._inFrame._image.copy()
             image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
 
             self._inFrame._setPhoto(image)
-
-    def _onLeaveImage(self, event):
-        def leave():
-            if self._inFrame:
-                self._inFrame._setPhoto(self._inFrame.thumbnail)
-                self._inFrame = None
-
-        # self.after_idle(leave)
 
     def _popup(self, mframe):
         def popup(event):
@@ -298,23 +292,21 @@ class SelectFrame(tkinter.Frame):
             self.after_idle(mediaFrame.reset)
 
     def _deleteAll(self):
-        files = [mediaFrame._file for _, mediaFrame in self.iterImages()]
+        for _, mediaFrame in self.iterImages():
+            mediaFrame.release()
 
-        self._newFrame() # remove access from images
-
-        all(map(self._imageMap.moveFileToTrash, files))
+            self._imageMap.moveFileToTrash(mediaFrame._file)
 
         self._imageMap.store()
         self.showNext()
 
     def _onNext(self):
-        files = [(mediaFrame._var.get(), mediaFrame._file) for _, mediaFrame in self.iterImages()]
+        for _, mediaFrame in self.iterImages():
+            mediaFrame.release()
+            file = mediaFrame._file
 
-        self._newFrame('') # remove access from images
-
-        for checkbox, file in files:
-            if checkbox:
-                if self._sauceNaoDir and str(file) in self._files: # move only files from the original items
+            if mediaFrame._var.get():
+                if str(file) in self._files: # move only files from the original items
                     self._imageMap.moveFileTo(file, self._sauceNaoDir)
             else:
                 self._imageMap.moveFileToTrash(file)
@@ -355,8 +347,6 @@ class SelectFrame(tkinter.Frame):
 
                 mframe.bind('<Button-1>', openFile(file))
                 mframe.bind('<Enter>', self._onEnterImage(mframe))
-
-                # mframe.bind('<Leave>', self._onLeaveImage)
 
                 if mframe.isVideo:
                     mframe.bind('<Button-3>', self._popup(mframe))
