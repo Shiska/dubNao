@@ -1,7 +1,8 @@
 __pycache__/
+sauceNao/
+select/
 trash/
 dest/
-test/
 env/
 
 *.pkl

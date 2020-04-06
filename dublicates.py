@@ -38,8 +38,7 @@ PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 class Application(tkinter.Tk):
     def __init__(self):
         super().__init__()
-        self.wait_visibility() # necessary otherwise the gui won't show up at all
-
+        self.wait_visibility()
         # self.loop = asyncio.get_event_loop()
         self.attributes("-fullscreen", True)
         self.title('Dublicate finder')
@@ -55,16 +54,14 @@ class Application(tkinter.Tk):
         sframe.pack(fill = tkinter.BOTH)
 
         self._settings = widgets.SettingFrame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
-
         self._frame = tkinter.Frame(sframe)
-        self._frame.pack()
 
-        tkinter.Label(self._frame, text = 'Hello World').pack()
+        if self._settings.autostart:
+            self._index()
+        else:
+            self._showSettings()
 
-        # frame = widgets.SettingFrame(sframe)
-        # frame.pack()
-
-        # self._index()
+        self.mainloop()
 
     def _setFrame(self, func, *args, **kwargs):
         master = self._frame.master
@@ -103,18 +100,14 @@ class Application(tkinter.Tk):
     def _hideSettings(self):
         self._settings.pack_forget()
         self._frame.pack()
+        self._index()
 
     def _index(self):
-        self._setFrame(widgets.IndexFrame, self._settings.indexDirs, self._settings.ignoreDirs, command = self._select)
+        self._index = lambda: None
+        self._setFrame(widgets.IndexFrame, command = self._select)
 
-    def _select(self, imageMap):
-        self._imageMap = imageMap
-        select = self._settings.selectDirs
-
-        items = {key: [v for v in value if any(p in select for p in pathlib.Path(v).parents)] for key, value in imageMap}
-        items = {key: value for key, value in items.items() if len(value)}
-
-        self._setFrame(widgets.SelectFrame, imageMap, items, self._settings.sauceNaoDir, command = self._dublicates)
+    def _select(self):
+        self._setFrame(widgets.SelectFrame, command = None) #self._dublicates)
 
     def _dublicates(self):
         items = {key: value for key, value in self._imageMap if len(value) > 1}
@@ -577,4 +570,4 @@ class Application(tkinter.Tk):
                         checkbox.append((file, var, button, label))
 
 if __name__ == '__main__':
-    Application().mainloop()
+    Application()

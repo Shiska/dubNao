@@ -1,18 +1,21 @@
 import os
+import sys
 import pathlib
 import tkinter
 import platform
 import subprocess
-import hurry.filesize
 
-import PIL.Image
 import PIL.ImageTk
 import PIL.ImageChops
 
-from MediaFrame import MediaFrame
+sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
 
-class SelectFrame(tkinter.Frame): #todo get frames after images were created, instead of getting the thumbnail twice!
-    thumbnailSize = 300 # maybe: move all 'selected' files into a 'select' folder to speed up indexing
+from MediaFrame import MediaFrame
+from IndexFrame import IndexFrame
+from SettingFrame import SettingFrame
+
+class SelectFrame(tkinter.Frame):
+    thumbnailSize = 300
     maxImagesPerRow = 6
 
     colors = dict(enumerate([
@@ -23,14 +26,70 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
         'orange',
     ]))
 
-    def __init__(self, master, imageMap, items: dict, dest: str = None, command = None):
+    def __init__(self, master, command = None):
         super().__init__(master)
 
         self.command = command
 
-        self._imageMap = imageMap
-        self._items = dict(items)
-        self._dest = pathlib.Path(dest).absolute() if dest else None
+        self._imageMap =  IndexFrame.imageMap
+        self._selectDir = pathlib.Path(SettingFrame.selectDir)
+        self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
+
+        self.grid_columnconfigure(0, weight = 1)
+        self._initMove()
+
+    def _initMove(self): # copied from indexFrame
+        selectDirs = set(map(pathlib.Path, SettingFrame.selectDirs))
+
+        self._items = {key: value for key, value in ((key, {v for v in value if any(p in selectDirs for p in pathlib.Path(v).parents)}) for key, value in self._imageMap) if len(value)}
+
+        oframe = tkinter.Frame(self)
+        oframe.grid() # additional frame to avoid expansion
+
+        frame = tkinter.LabelFrame(oframe, text = 'Moving files')
+        frame.grid_columnconfigure(1, weight = 1)
+        frame.grid(sticky = 'ew')
+
+        tkinter.Label(frame, text = 'Key:').grid(row = 0, column = 0, sticky = 'e')
+        tkinter.Label(frame, text = 'File:').grid(row = 1, column = 0, sticky = 'e')
+
+        keyLabel = tkinter.Label(frame)
+        keyLabel.grid(row = 0, column = 1, sticky = 'w')
+        fileLabel = tkinter.Label(frame)
+        fileLabel.grid(row = 1, column = 1, sticky = 'w')
+
+        frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
+
+        ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), pathlib.Path(SettingFrame.destDir))
+
+        def moveFiles():
+            remaining = len(self._items)
+
+            if remaining == 0:
+                oframe.destroy()
+
+                self._imageMap.store()
+                self._initSelect()
+            else:
+                (key, files) = self._items.popitem()
+
+                keyLabel['text'] = key
+                fileLabel['text'] = ''
+
+                for f in files:
+                    parents = pathlib.Path(f).parents
+
+                    if all(p not in ignoreDirs for p in parents):
+                        fileLabel['text'] = f
+
+                        self._imageMap.moveFileTo(f, self._selectDir)
+
+                self.after_idle(moveFiles)
+
+        self.after_idle(moveFiles)
+
+    def _initSelect(self):
+        self._items = {key: value for key, value in ((key, {v for v in value if self._selectDir in pathlib.Path(v).parents}) for key, value in self._imageMap) if len(value)}
 
         frame = tkinter.Frame(self)
         frame.grid()
@@ -59,7 +118,7 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
 
         self.showNext()
 
-    def _newFrame(self, text: str):
+    def _newFrame(self, text: str = ''):
         self._inFrame = self._diffFrame = None
 
         master = self._frame.master
@@ -110,8 +169,8 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
                 maxsize = max(sizes)
                 victims = [victims[idx] for idx, size in enumerate(sizes) if size == maxsize]
 
-                if len(victims) > 1 and self._dest:
-                    newvictims = [idx for idx in victims if data['file'][idx].parent == self._dest]
+                if len(victims) > 1 and self._sauceNaoDir:
+                    newvictims = [idx for idx in victims if data['file'][idx].parent == self._sauceNaoDir]
 
                     if len(newvictims): # if 0 all are in search path so use old victims
                         victims = newvictims
@@ -241,7 +300,7 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
     def _deleteAll(self):
         files = [mediaFrame._file for _, mediaFrame in self.iterImages()]
 
-        self._newFrame('') # remove access from images
+        self._newFrame() # remove access from images
 
         all(map(self._imageMap.moveFileToTrash, files))
 
@@ -255,8 +314,8 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
 
         for checkbox, file in files:
             if checkbox:
-                if self._dest and str(file) in self._files: # move only files from the original items
-                    self._imageMap.moveFileTo(file, self._dest)
+                if self._sauceNaoDir and str(file) in self._files: # move only files from the original items
+                    self._imageMap.moveFileTo(file, self._sauceNaoDir)
             else:
                 self._imageMap.moveFileToTrash(file)
 
@@ -339,18 +398,14 @@ class SelectFrame(tkinter.Frame): #todo get frames after images were created, in
             self._onEnterImage(data['frame'][[key for key, value in ranking['size'].items() if value == 0][0]])(None)
 
 if __name__ == '__main__':
-    from IndexFrame import ImageMap
+    from ScrollableFrame import ScrollableFrame
 
     root = tkinter.Tk()
     root.wait_visibility()
-
-    imageMap = ImageMap()
-
-    from ScrollableFrame import ScrollableFrame
     
     frame = ScrollableFrame(root)
     frame.pack(fill = tkinter.BOTH)
 
-    SelectFrame(frame, imageMap, {k: v for k, v in imageMap}, 'dest', command = root.destroy).pack()
+    SelectFrame(frame, command = lambda: root.after_idle(root.destroy)).pack(fill = tkinter.BOTH)
 
     root.mainloop()

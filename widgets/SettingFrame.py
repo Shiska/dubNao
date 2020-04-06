@@ -17,7 +17,7 @@ class SettingFrame(tkinter.LabelFrame):
     column = ('Dir', 'Index', 'Select', 'Ignore', 'Delete')
     column = type('Enum', (), dict((v, i) for i, v in enumerate(column)))
 
-    def __init__(self, master, confirmcommand = None, cancelcommand = None): # todo change into settings, add saucenao and select folder line, use default folders in python directory
+    def __init__(self, master, confirmcommand = None, cancelcommand = None):
         super().__init__(master, text = 'Settings')
 
         self.confirmcommand = confirmcommand
@@ -62,13 +62,16 @@ class SettingFrame(tkinter.LabelFrame):
         tkinter.Label(frame, text = 'Select').grid(row = 0, column = self.column.Select)
         tkinter.Label(frame, text = 'Ignore').grid(row = 0, column = self.column.Ignore)
 
-        frame = tkinter.Frame(self)
-        frame.grid_columnconfigure(0, weight = 1)
-        frame.grid_columnconfigure(1, weight = 1)
+        frame = tkinter.LabelFrame(self, text = 'Misc')
         frame.pack(fill = tkinter.X)
 
-        tkinter.Button(frame, text = 'Confirm', command = self._confirm).grid(row = 0, column = 0, sticky = 'ew')
-        tkinter.Button(frame, text = 'Cancel', command = self._cancel).grid(row = 0, column = 1, sticky = 'ew')
+        tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).pack()
+
+        frame = tkinter.Frame(self)
+        frame.pack(fill = tkinter.X)
+
+        tkinter.Button(frame, text = 'Confirm', command = self._confirm).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Cancel', command = self._cancel).pack(expand = True, fill = tkinter.X, side = tkinter.RIGHT)
 
     @classmethod
     def _load(cls):
@@ -78,37 +81,42 @@ class SettingFrame(tkinter.LabelFrame):
     @classmethod
     def _store(cls):
         with open(cls.dirFile, 'wb') as file:
-            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir), file)
+            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart), file)
 
     @classmethod
     def _init(cls):
         cls._init = lambda *args: None
 
+        cls._autostart = tkinter.BooleanVar()
         cls._sauceNao = tkinter.StringVar()
         cls._select = tkinter.StringVar()
         cls._trash = tkinter.StringVar()
         cls._dest = tkinter.StringVar()
 
         if pathlib.Path(cls.dirFile).is_file():
-            (dirs, sauceNao, select, trash, dest) = cls._load()
+            (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart) = cls._load()
+
+            cls._autostart.set(autostart)
         else:
-            dirs = dict()
             cwd = pathlib.Path.cwd()
-            sauceNao = cwd.joinpath('sauceNao')
-            select = cwd.joinpath('select')
-            trash = cwd.joinpath('trash')
-            dest = ''
 
-            pathlib.Path.mkdir(sauceNao, exist_ok = True)
-            pathlib.Path.mkdir(select, exist_ok = True)
-            pathlib.Path.mkdir(trash, exist_ok = True)
+            cls._directories = dict()
+            cls._autostart._bool = False
+            cls._sauceNao._dir = cwd.joinpath('sauceNao')
+            cls._select._dir = cwd.joinpath('select')
+            cls._trash._dir = cwd.joinpath('trash')
+            cls._dest._dir = ''
 
-        cls._directories = dirs
-        cls._sauceNao._dir = sauceNao
-        cls._select._dir = select
-        cls._trash._dir = trash
-        cls._dest._dir = dest
-        cls._store()
+            pathlib.Path.mkdir(cls._sauceNao._dir, exist_ok = True)
+            pathlib.Path.mkdir(cls._select._dir, exist_ok = True)
+            pathlib.Path.mkdir(cls._trash._dir, exist_ok = True)
+
+            cls._sauceNao._dir = str(cls._sauceNao._dir)
+            cls._select._dir = str(cls._select._dir)
+            cls._trash._dir = str(cls._trash._dir)
+            cls._dest._dir = str(cls._dest._dir)
+
+            cls._store()
 
     def _confirm(self):
         if self.confirmcommand:
@@ -121,10 +129,11 @@ class SettingFrame(tkinter.LabelFrame):
         if self.cancelcommand:
             self.cancelcommand()
 
-        (dirs, self._sauceNao._dir, self._select._dir, self._trash._dir, self._dest._dir) = self._load()
+        (dirs, self._sauceNao._dir, self._select._dir, self._trash._dir, self._dest._dir, autostart) = self._load()
 
         self._directories.clear()
         self._directories.update(dirs)
+        self._autostart.set(autostart)
 
     def _setDir(self, variable, dir):
         path = pathlib.Path(dir)
@@ -248,14 +257,14 @@ class SettingFrame(tkinter.LabelFrame):
         return super().place(*args, **kwargs)
 
     class classproperty(classmethod):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
         def __get__(self, instance, owner = None):
             owner._init()
 
             return super().__get__(instance, owner)()
 
+    @classproperty
+    def autostart(cls):
+        return cls._autostart.get()
     @classproperty
     def sauceNaoDir(cls):
         return cls._sauceNao._dir
@@ -270,16 +279,16 @@ class SettingFrame(tkinter.LabelFrame):
         return cls._dest._dir
     @classproperty
     def indexDirs(cls):
-        return cls._getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[0]})
+        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[0]})
     @classproperty
     def selectDirs(cls):
-        return cls._getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[1]})
+        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[1]})
     @classproperty
     def ignoreDirs(cls):
-        return cls._getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[2]})
+        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[2]})
 
     @staticmethod
-    def _getRootFolders(folders: set):
+    def getRootFolders(folders: set):
         folders = [pathlib.Path(f).resolve() for f in folders]
 
         for f in folders:

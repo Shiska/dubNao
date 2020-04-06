@@ -3,4 +3,3 @@ ImageHash
 pysaucenao
 opencv-python
 python-slugify
-hurry.filesize
