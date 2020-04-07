@@ -78,8 +78,10 @@ class ImageMap():
                 if not v.exists():
                     self.delete(filename = v, hash = hash)
                     self.store()
-                elif v.parent != self._trashDir:
+                else:
                     files.append(str(v))
+                # elif v.parent != self._trashDir:
+                    # files.append(str(v))
 
             if len(files):
                 yield hash, files
@@ -163,8 +165,6 @@ class IndexFrame(tkinter.Frame):
         else:
             self.quickscan()
 
-        self._after = self.after_idle(self.process)
-
         frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
     @classmethod
@@ -179,12 +179,16 @@ class IndexFrame(tkinter.Frame):
         self._ignore = set(SettingFrame.ignoreDirs)
         self._files = iter(())
 
+        self._after = self.after_idle(self.process)
+
     def quickscan(self):
         self._scanButton.config(text = 'Fullscan', command = self.fullscan)
 
         self._dirs = set(SettingFrame.indexDirs)
         self._ignore = set(SettingFrame.ignoreDirs)
         self._files = iter(())
+
+        self._after = self.after_idle(self.process)
 
     def skip(self):
         if self._after:

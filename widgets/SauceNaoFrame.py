@@ -1,8 +1,6 @@
 import re
 import io
 import sys
-import time
-import pickle
 import asyncio
 import pathlib
 import slugify
@@ -19,7 +17,7 @@ from MediaFrame import MediaFrame
 from IndexFrame import IndexFrame
 from SettingFrame import SettingFrame
 
-class SauceNaoFrame(tkinter.Frame): #todo get frames after images were created, instead of getting the thumbnail twice!
+class SauceNaoFrame(tkinter.Frame):
     def __init__(self, master, command = None):
         super().__init__(master)
 
@@ -107,7 +105,7 @@ class SauceNaoFrame(tkinter.Frame): #todo get frames after images were created, 
         self._messageLabel['text'] = 'Checking...'
 
         try:
-            results = self._event_loop.run_until_complete(self._snao.from_file(file))
+            results = self._event_loop.run_until_complete(self._snao.from_file(file)) # impossible to integrate into mainloop because this shit forces you to use a second event loops
         except pysaucenao.ShortLimitReachedException as e:
             self._messageLabel['text'] = self.removeHTML(e)
             self._files.add(file)

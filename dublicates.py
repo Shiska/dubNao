@@ -10,6 +10,10 @@ class Application(tkinter.Tk):
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
+        self.menubar.add_command(label = 'Indexing', command = self._index)
+        self.menubar.add_command(label = 'Selection', command = self._select)
+        self.menubar.add_command(label = 'SauceNAO', command = self._sauceNao)
+        self.menubar.add_command(label = 'Trash', command = self._trash)
         self.menubar.add_command(label = 'Settings', command = self._showSettings)
         self.menubar.add_command(label = 'Quit', command = self.destroy)
 
@@ -20,10 +24,12 @@ class Application(tkinter.Tk):
 
         self._settings = widgets.SettingFrame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
         self._frame = tkinter.Frame(sframe)
+
         self._settingsShown = False
+        self._onFrameDelete = None
 
         if self._settings.autostart:
-            self._index()
+            self._start()
         else:
             self._showSettings()
 
@@ -55,10 +61,18 @@ class Application(tkinter.Tk):
             self._settings.pack_forget()
             self._settingsShown = False
             self._frame.pack()
-            self._index()
+            self._start()
 
-    def _setFrame(self, func, *args, **kwargs):
+    def _start(self):
+        self._start = lambda: None
+        self._index()
+
+    def _setFrame(self, func, *args, **kwargs): # enter, exit callbacks and select / saucenao in menu
         master = self._frame.master
+
+        if self._onFrameDelete:
+            self._onFrameDelete()
+            self._onFrameDelete = None
 
         self._frame.destroy()
         self._frame = func(master, *args, **kwargs)
@@ -69,7 +83,6 @@ class Application(tkinter.Tk):
         return self._frame
 
     def _index(self):
-        self._index = lambda: None
         self._setFrame(widgets.IndexFrame, command = self._select)
 
     def _select(self):
@@ -79,12 +92,23 @@ class Application(tkinter.Tk):
         self.bind('<Left>',    lambda event: frame.showNext())
         self.bind('<Right>',   lambda event: frame._onNext())
 
-    def _sauceNao(self):
-        self.unbind_all('<Delete>')
-        self.unbind_all('<Left>')
-        self.unbind_all('<Right>')
+        def unbind():
+            self.unbind_all('<Delete>')
+            self.unbind_all('<Left>')
+            self.unbind_all('<Right>')
 
-        self._setFrame(widgets.SauceNaoFrame)
+        self._onFrameDelete = unbind
+
+    def _sauceNao(self):
+        self._setFrame(widgets.SauceNaoFrame, command = self._done)
+
+    def _done(self):
+        frame = self._setFrame(tkinter.Frame)
+
+        tkinter.Label(frame, 'Done').pack()
+
+    def _trash(self):
+        self._setFrame(widgets.TrashFrame, command = self._select)
 
 if __name__ == '__main__':
     Application()

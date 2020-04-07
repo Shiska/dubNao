@@ -25,7 +25,6 @@ class MediaFrame(tkinter.Frame):
         self.loop = loop
 
         self.bind = self.label.bind
-        # self.bind('<Configure>', self._configure)
 
         if filename:
             self.open(filename)
@@ -81,23 +80,6 @@ class MediaFrame(tkinter.Frame):
             self._setImage(PIL.Image.fromarray(frame))
 
         return ret
-
-    def _configure(self, event):
-        # image = self.image.copy()
-        # image.thumbnail((self.winfo_width(), self.winfo_height()))
-
-        oldmaster = newmaster = self.master
-
-        while newmaster:
-            oldmaster = newmaster
-            newmaster = getattr(newmaster, 'master', None)
-
-        # print((self.winfo_width(), self.winfo_height()), event, flush = True)
-        # help(self)
-        # print((self.winfo_screenwidth() * 3 // 4, self.winfo_screenheight() * 3 // 4), event, flush = True)
-        # print((oldmaster.winfo_width(), oldmaster.winfo_height()), event, flush = True)
-
-        # self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = image)
 
     def _setImage(self, image):
         image = self._image = image.convert('RGB')
