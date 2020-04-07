@@ -15,9 +15,8 @@ class TrashFrame(tkinter.Frame):
         self.command = command
 
         imageMap = IndexFrame.imageMap
-        trashDir = pathlib.Path(SettingFrame.trashDir).resolve()
 
-        self._items = sorted(((v, key) for key, value in imageMap for v in value if trashDir == pathlib.Path(v).parent), key = lambda i: pathlib.Path(i[0]).stat().st_mtime)
+        self._items = sorted(((v, key) for key, value in imageMap.trash() for v in value), key = lambda i: pathlib.Path(i[0]).stat().st_mtime)
         self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir).resolve()
         self._imageMap = imageMap
 
@@ -53,6 +52,8 @@ class TrashFrame(tkinter.Frame):
 
             self._imageFrame['text'] = self._file.name + ' (' + str(len(self._items)) + ' remaining)'
             self._mediaFrame.open(file)
+            self._mediaFrame.bind('<Button-1>', lambda e: self._mediaFrame.osOpen())
+
         elif self.command:
             self.command()
 

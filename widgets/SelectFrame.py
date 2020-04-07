@@ -1,9 +1,6 @@
-import os
 import sys
 import pathlib
 import tkinter
-import platform
-import subprocess
 
 import PIL.ImageTk
 import PIL.ImageChops
@@ -42,10 +39,10 @@ class SelectFrame(tkinter.Frame):
     def _initMove(self): # copied from indexFrame
         selectDirs = set(map(pathlib.Path, SettingFrame.selectDirs))
 
-        self._items = {key: value for key, value in ((key, {v for v in value if any(p in selectDirs for p in pathlib.Path(v).parents)}) for key, value in self._imageMap) if len(value)}
+        self._items = ((key, v) for key, value in self._imageMap for v in map(pathlib.Path, value) if any(p in selectDirs for p in v.parents))
 
         oframe = tkinter.Frame(self)
-        oframe.grid()
+        oframe.pack()
 
         frame = tkinter.LabelFrame(oframe, text = 'Moving files')
         frame.grid_columnconfigure(1, weight = 1)
@@ -64,60 +61,59 @@ class SelectFrame(tkinter.Frame):
         ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), self._destDir)
 
         def moveFiles():
-            remaining = len(self._items)
+            (key, file) = next(self._items, (None, None))
 
-            if remaining == 0:
+            if key:
+                keyLabel['text'] = key
+                fileLabel['text'] = ''
+
+                parents = file.parents
+
+                if all(p not in ignoreDirs for p in parents):
+                    fileLabel['text'] = str(file)
+
+                    self._imageMap.moveFileTo(file, self._selectDir)
+
+                self.after_idle(moveFiles)
+            else:
                 oframe.destroy()
 
                 self._imageMap.store()
                 self._initSelect()
-            else:
-                (key, files) = self._items.popitem()
-
-                keyLabel['text'] = key
-                fileLabel['text'] = ''
-
-                for f in files:
-                    parents = pathlib.Path(f).parents
-
-                    if all(p not in ignoreDirs for p in parents):
-                        fileLabel['text'] = f
-
-                        self._imageMap.moveFileTo(f, self._selectDir)
-
-                self.after_idle(moveFiles)
 
         self.after_idle(moveFiles)
 
     def _initSelect(self):
         if SettingFrame.duplicates:
-            self._items = {key: value for key, value in self._imageMap if len(value) > 1}
-            self._items.update({key: value for key, value in self._imageMap if len(value) == 1 and self._selectDir in pathlib.Path(value[0]).parents})
+            self._items = {key: value for key, value in self._imageMap if len(value) > 1 or self._selectDir in pathlib.Path(value[0]).parents}
         else:
-            self._items = {key: value for key, value in ((key, {v for v in value if self._selectDir in pathlib.Path(v).parents}) for key, value in self._imageMap) if len(value)}
+            self._items = {key: v for key, value in self._imageMap for v in ({v for v in value if self._selectDir in pathlib.Path(v).parents}, ) if len(v)}
 
-        frame = tkinter.Frame(self)
-        frame.grid()
+        oframe = tkinter.LabelFrame(self, text = 'Selection')
+        oframe.pack()
 
-        tkinter.Button(frame, text = 'Next', command = self._onNext).grid(row = 0, column = 0)
-        tkinter.Button(frame, text = 'Skip', command = self.showNext).grid(row = 0, column = 1)
-        tkinter.Button(frame, text = 'Difference', command = self._onDiff).grid(row = 0, column = 2)
-        tkinter.Button(frame, text = 'Delete', command = self._deleteAll).grid(row = 0, column = 3)
+        frame = tkinter.Frame(oframe)
+        frame.pack(expand = True, fill = tkinter.X)
 
-        self._vButtonsFrame = tkinter.Frame(self)
-        self._vButtonsFrame.grid()
+        tkinter.Button(frame, text = 'Next', command = self._onNext).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Skip', command = self.showNext).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Difference', command = self._onDiff).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Delete', command = self._deleteAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
-        tkinter.Button(self._vButtonsFrame, text = 'Start', command = self._startAll).grid(row = 0, column = 0)
-        tkinter.Button(self._vButtonsFrame, text = 'Stop', command = self._stopAll).grid(row = 0, column = 1)
-        tkinter.Button(self._vButtonsFrame, text = 'Reset', command = self._resetAll).grid(row = 0, column = 2)
+        self._vButtonsFrame = tkinter.Frame(oframe)
+        self._vButtonsFrame.pack(expand = True, fill = tkinter.X)
+
+        tkinter.Button(self._vButtonsFrame, text = 'Start', command = self._startAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(self._vButtonsFrame, text = 'Stop', command = self._stopAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(self._vButtonsFrame, text = 'Reset', command = self._resetAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         self._menu = tkinter.Menu(self, tearoff = 0)
         self._menu.add_command(label = 'Start', command = lambda: self._menu._mframe.play())
         self._menu.add_command(label = 'Stop', command = lambda: self._menu._mframe.stop())
         self._menu.add_command(label = 'Reset', command = lambda: self._menu._mframe.reset())
 
-        keyFrame = tkinter.LabelFrame(self)
-        keyFrame.grid()
+        keyFrame = tkinter.LabelFrame(oframe)
+        keyFrame.pack()
 
         self._frame = tkinter.Frame(keyFrame)
 
@@ -135,15 +131,6 @@ class SelectFrame(tkinter.Frame):
         self._frame.pack(fill = tkinter.BOTH)
 
         return self._frame
-
-    @staticmethod
-    def openFile(filepath: str):
-        if platform.system() == 'Darwin':
-            subprocess.call(('open', filepath))
-        elif platform.system() == 'Windows':
-            os.startfile(filepath)
-        else: # linux
-            subprocess.call(('xdg-open', filepath))
 
     @staticmethod
     def getDifference(image1, image2) -> tuple:
@@ -339,13 +326,13 @@ class SelectFrame(tkinter.Frame):
                 mframe._file = file
                 mframe.grid()
 
-                def openFile(file):
+                def openFile(frame):
                     def event(e):
-                        self.openFile(file)
+                        frame.osOpen()
 
                     return event
 
-                mframe.bind('<Button-1>', openFile(file))
+                mframe.bind('<Button-1>', openFile(mframe))
                 mframe.bind('<Enter>', self._onEnterImage(mframe))
 
                 if mframe.isVideo:
@@ -354,9 +341,9 @@ class SelectFrame(tkinter.Frame):
                     isThereAnyVideo = True
 
             if isThereAnyVideo:
-                self._vButtonsFrame.grid()
+                self._vButtonsFrame.pack()
             else:
-                self._vButtonsFrame.grid_remove()
+                self._vButtonsFrame.pack_forget()
 
             self._onDiff()
             self._onDiff()

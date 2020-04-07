@@ -71,17 +71,28 @@ class ImageMap():
 
     def __iter__(self):
         for hash, value in list(self._data.items()):
-            # if '__checked__' not in value:
             files = []
 
             for v in map(pathlib.Path, list(value)):
                 if not v.exists():
                     self.delete(filename = v, hash = hash)
                     self.store()
-                else:
+                elif v.parent != self._trashDir:
                     files.append(str(v))
-                # elif v.parent != self._trashDir:
-                    # files.append(str(v))
+
+            if len(files):
+                yield hash, files
+
+    def trash(self):
+        for hash, value in list(self._data.items()):
+            files = []
+
+            for v in map(pathlib.Path, list(value)):
+                if not v.exists():
+                    self.delete(filename = v, hash = hash)
+                    self.store()
+                elif v.parent == self._trashDir:
+                    files.append(str(v))
 
             if len(files):
                 yield hash, files

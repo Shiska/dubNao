@@ -1,6 +1,9 @@
+import os
 import cv2
 import tkinter
+import platform
 import PIL.Image
+import subprocess
 import PIL.ImageTk
 import PIL.ImageFile
 
@@ -39,6 +42,7 @@ class MediaFrame(tkinter.Frame):
         self._delay = None
         self.scale.pack_forget()
         self._video.open(filename)
+        self._filename = filename
 
         isOpened = self._video.isOpened()
 
@@ -139,6 +143,14 @@ class MediaFrame(tkinter.Frame):
         self.release()
 
         return super().destroy()
+
+    def osOpen(self):
+        if platform.system() == 'Darwin':
+            subprocess.call(('open', self._filename))
+        elif platform.system() == 'Windows':
+            os.startfile(self._filename)
+        else: # linux
+            subprocess.call(('xdg-open', self._filename))
 
     @property
     def isPlaying(self) -> bool:
