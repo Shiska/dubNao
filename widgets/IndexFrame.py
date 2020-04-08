@@ -97,8 +97,8 @@ class ImageMap():
             if len(files):
                 yield hash, files
 
-    def __getitem__(self,key):
-        return self._data[key]
+    def __getitem__(self, key):
+        return (v for v in self._data[key] if pathlib.Path(v).parent != self._trashDir)
 
     def renameFile(self, src, dest):
         src = pathlib.Path(src)

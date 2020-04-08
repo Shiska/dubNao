@@ -87,7 +87,6 @@ class MediaFrame(tkinter.Frame):
 
     def _setImage(self, image):
         image = self._image = image.convert('RGB')
-
         thumbnail = self._thumbnail = image.copy()
 
         if self.thumbSize:

@@ -33,7 +33,7 @@ class SelectFrame(tkinter.Frame):
         self._selectDir = pathlib.Path(SettingFrame.selectDir)
         self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
 
-        self.grid_columnconfigure(0, weight = 1)
+        self.focus_set()
         self._initMove()
 
     def _initMove(self): # copied from indexFrame
@@ -85,27 +85,32 @@ class SelectFrame(tkinter.Frame):
 
     def _initSelect(self):
         if SettingFrame.duplicates:
-            self._items = {key: value for key, value in self._imageMap if len(value) > 1 or self._selectDir in pathlib.Path(value[0]).parents}
+            self._items = ((key, value) for key, value in self._imageMap if len(value) > 1 or self._selectDir in pathlib.Path(value[0]).parents)
         else:
-            self._items = {key: v for key, value in self._imageMap for v in ({v for v in value if self._selectDir in pathlib.Path(v).parents}, ) if len(v)}
+            self._items = ((key, v) for key, value in self._imageMap for v in ({v for v in value if self._selectDir in pathlib.Path(v).parents}, ) if len(v))
 
         oframe = tkinter.LabelFrame(self, text = 'Selection')
         oframe.pack()
 
+        self.bind('<Left>',     self.reset)
+        self.bind('<Up>',       self.difference)
+        self.bind('<Down>',     self.delete)
+        self.bind('<Right>',    self.next)
+        self.bind('<space>',    self.toggle)
+
         frame = tkinter.Frame(oframe)
         frame.pack(expand = True, fill = tkinter.X)
 
-        tkinter.Button(frame, text = 'Next', command = self._onNext).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(frame, text = 'Skip', command = self.showNext).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(frame, text = 'Difference', command = self._onDiff).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(frame, text = 'Delete', command = self._deleteAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Next (Right)', command = self.next).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Difference (Up)', command = self.difference).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Delete (Down)', command = self.delete).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         self._vButtonsFrame = tkinter.Frame(oframe)
         self._vButtonsFrame.pack(expand = True, fill = tkinter.X)
 
-        tkinter.Button(self._vButtonsFrame, text = 'Start', command = self._startAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(self._vButtonsFrame, text = 'Stop', command = self._stopAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(self._vButtonsFrame, text = 'Reset', command = self._resetAll).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(self._vButtonsFrame, text = 'Start (Space)', command = self.start).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(self._vButtonsFrame, text = 'Stop (Space)', command = self.stop).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(self._vButtonsFrame, text = 'Reset (Left)', command = self.reset).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         self._menu = tkinter.Menu(self, tearoff = 0)
         self._menu.add_command(label = 'Start', command = lambda: self._menu._mframe.play())
@@ -117,7 +122,7 @@ class SelectFrame(tkinter.Frame):
 
         self._frame = tkinter.Frame(keyFrame)
 
-        self.showNext()
+        self._showNext()
 
     def _newFrame(self, text: str = ''):
         self._inFrame = self._diffFrame = None
@@ -234,7 +239,7 @@ class SelectFrame(tkinter.Frame):
 
         return enter
 
-    def _onDiff(self):
+    def difference(self, event = None):
         if self._diffFrame:
             self._diffFrame = None
 
@@ -249,7 +254,7 @@ class SelectFrame(tkinter.Frame):
             if self._diffFrame == mframe:
                 self._setDiffImages(mframe)
             else:
-                (diffImage, difference) = self.getDifference(self._diffFrame.thumbnail, thumbnail)
+                (diffImage, difference) = self.getDifference(self._diffFrame._thumbnail, thumbnail)
 
                 mframe['image'] = mframe.diff = PIL.ImageTk.PhotoImage(diffImage)
                 mframe.master['text'] = 'Difference: ' + str(difference)
@@ -266,28 +271,38 @@ class SelectFrame(tkinter.Frame):
 
         return popup
 
-    def _startAll(self):
+    def start(self, event = None):
+        self._videosPlaying = True
+
         for _, mediaFrame in self.iterImages():
             self.after_idle(mediaFrame.play)
 
-    def _stopAll(self):
+    def stop(self, event = None):
+        self._videosPlaying = False
+
         for _, mediaFrame in self.iterImages():
             self.after_idle(mediaFrame.stop)
 
-    def _resetAll(self):
+    def toggle(self, event = None):
+        if self._videosPlaying:
+            self.stop()
+        else:
+            self.start()
+
+    def reset(self, event = None):
         for _, mediaFrame in self.iterImages():
             self.after_idle(mediaFrame.reset)
 
-    def _deleteAll(self):
+    def delete(self, event = None):
         for _, mediaFrame in self.iterImages():
             mediaFrame.release()
 
             self._imageMap.moveFileToTrash(mediaFrame._file)
 
         self._imageMap.store()
-        self.showNext()
+        self._showNext()
 
-    def _onNext(self):
+    def next(self, event = None):
         for _, mediaFrame in self.iterImages():
             mediaFrame.release()
             file = mediaFrame._file
@@ -299,20 +314,15 @@ class SelectFrame(tkinter.Frame):
                 self._imageMap.moveFileToTrash(file)
 
         self._imageMap.store()
-        self.showNext()
+        self._showNext()
 
-    def showNext(self):
-        remaining = len(self._items)
+    def _showNext(self):
+        (key, self._files) = next(self._items, (None, None))
 
-        if remaining == 0:
-            if self.command:
-                self.command()
-        else:
-            (key, self._files) = self._items.popitem()
-
+        if key:
             isThereAnyVideo = False
             wrap = self.thumbnailSize * 3 // 4
-            frame = self._newFrame(key + ' (' + str(remaining - 1) + ' remaining)')
+            frame = self._newFrame(key)
 
             for idx, file in enumerate(map(pathlib.Path, self._imageMap[key])):
                 lframe = tkinter.LabelFrame(frame)
@@ -340,13 +350,15 @@ class SelectFrame(tkinter.Frame):
 
                     isThereAnyVideo = True
 
+            self._videosPlaying = True
+
             if isThereAnyVideo:
                 self._vButtonsFrame.pack()
             else:
                 self._vButtonsFrame.pack_forget()
-
-            self._onDiff()
-            self._onDiff()
+            # to calculate difference value and hide it again
+            self.difference()
+            self.difference()
 
             data = self.getFileData()
             ranking = self.groupData(data)
@@ -357,9 +369,9 @@ class SelectFrame(tkinter.Frame):
                 file = mediaFrame._file
                 var = mediaFrame._var
 
-                var.set(selected == None or selected == idx)
+                var.set(selected == None or selected == idx or str(file) not in self._files)
 
-                tkinter.Checkbutton(frame, text = str(file.name), variable = var, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = idx)
+                tkinter.Checkbutton(frame, text = file.name, variable = var, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = idx)
 
                 hframe = tkinter.Frame(frame)
                 hframe.grid(row = 1, column = idx)
@@ -373,6 +385,9 @@ class SelectFrame(tkinter.Frame):
                 tkinter.Label(hframe, text = str(data['filesize'][idx]), wraplength = wrap, fg = self._getColor(ranking['filesize'][idx])).grid(row = 3, column = 1, sticky = 'w')
 
             self._onEnterImage(data['frame'][[key for key, value in ranking['size'].items() if value == 0][0]])(None)
+        else:
+            if self.command:
+                self.command()
 
 if __name__ == '__main__':
     from ScrollableFrame import ScrollableFrame
