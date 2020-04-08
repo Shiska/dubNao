@@ -378,11 +378,16 @@ if __name__ == '__main__':
     from ScrollableFrame import ScrollableFrame
 
     root = tkinter.Tk()
+    root.attributes('-fullscreen', True)
     root.wait_visibility()
-    
+
     frame = ScrollableFrame(root)
-    frame.pack(fill = tkinter.BOTH)
+    frame.pack(expand = True, fill = tkinter.BOTH)
 
-    SelectFrame(frame, command = lambda: root.after_idle(root.destroy)).pack(fill = tkinter.BOTH)
+    SelectFrame(frame, command = lambda: root.after_idle(root.destroy)).pack(expand = True, fill = tkinter.BOTH)
 
+    menubar = tkinter.Menu(root)
+    menubar.add_command(label = 'Quit', command = root.destroy)
+
+    root.config(menu = menubar)
     root.mainloop()

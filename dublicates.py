@@ -6,7 +6,7 @@ class Application(tkinter.Tk):
         super().__init__()
         self.wait_visibility()
 
-        self.attributes("-fullscreen", True)
+        self.attributes('-fullscreen', True)
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
@@ -20,11 +20,10 @@ class Application(tkinter.Tk):
         self.config(menu = self.menubar)
 
         sframe = widgets.ScrollableFrame(self)
-        sframe.pack(fill = tkinter.BOTH)
+        sframe.pack(expand = True, fill = tkinter.BOTH)
 
         self._settings = widgets.SettingFrame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
         self._frame = tkinter.Frame(sframe)
-
         self._settingsShown = False
         self._onFrameDelete = None
 
@@ -78,7 +77,7 @@ class Application(tkinter.Tk):
         self._frame = func(master, *args, **kwargs)
 
         if not self._settingsShown:
-            self._frame.pack(fill = tkinter.BOTH)
+            self._frame.pack(expand = True, fill = tkinter.BOTH)
 
         return self._frame
 
@@ -88,27 +87,33 @@ class Application(tkinter.Tk):
     def _select(self):
         frame = self._setFrame(widgets.SelectFrame, command = self._sauceNao)
 
-        self.bind('<Delete>',  lambda event: frame._deleteAll())
-        self.bind('<Left>',    lambda event: frame.showNext())
-        self.bind('<Right>',   lambda event: frame._onNext())
+        self.bind('<Delete>',   lambda event: frame._deleteAll())
+        self.bind('<Right>',    lambda event: frame._onNext())
+        self.bind('<Left>',     lambda event: frame.showNext())
 
         def unbind():
             self.unbind_all('<Delete>')
-            self.unbind_all('<Left>')
             self.unbind_all('<Right>')
+            self.unbind_all('<Left>')
 
         self._onFrameDelete = unbind
 
     def _sauceNao(self):
-        self._setFrame(widgets.SauceNaoFrame, command = self._done)
-
-    def _done(self):
-        frame = self._setFrame(tkinter.Frame)
-
-        tkinter.Label(frame, 'Done').pack()
+        self._setFrame(widgets.SauceNaoFrame)
 
     def _trash(self):
-        self._setFrame(widgets.TrashFrame, command = self._select)
+        frame = self._setFrame(widgets.TrashFrame, command = self._sauceNao)
+
+        self.bind('<Delete>',   lambda event: frame._delete())
+        self.bind('<Right>',    lambda event: frame._next())
+        self.bind('<Up>',       lambda event: frame._restore())
+
+        def unbind():
+            self.unbind_all('<Delete>')
+            self.unbind_all('<Right>')
+            self.unbind_all('<Up>')
+
+        self._onFrameDelete = unbind
 
 if __name__ == '__main__':
     Application()

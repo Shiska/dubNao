@@ -114,15 +114,11 @@ class SauceNaoFrame(tkinter.Frame):
         except pysaucenao.DailyLimitReachedException as e:
             self._messageLabel['text'] = self.removeHTML(e)
 
-            exc = e
-
-            func = lambda: self._executeCommand(exc)
+            func = lambda: self._executeCommand()
         except Exception as e:
             self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
 
-            exc = e
-
-            func = lambda: self._executeCommand(exc)
+            func = lambda: self._executeCommand()
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 
@@ -146,14 +142,14 @@ class SauceNaoFrame(tkinter.Frame):
 
                 self.after_idle(self._next)
 
-    def _executeCommand(self, exception = None):
+    def _executeCommand(self):
         if self.command:
-            self.command(exception)
+            self.command()
 
 if __name__ == '__main__':
     root = tkinter.Tk()
     root.wait_visibility()
 
-    SauceNaoFrame(root, command = lambda e: root.after_idle(root.destroy)).pack(fill = tkinter.BOTH)
+    SauceNaoFrame(root, command = lambda: root.after_idle(root.destroy)).pack(fill = tkinter.BOTH)
 
     root.mainloop()

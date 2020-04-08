@@ -45,17 +45,21 @@ class ScrollableFrame(tkinter.Frame):
         self.pack(fill = tkinter.BOTH)
 
         window = canvas.create_window(0, 0, anchor = tkinter.NW, window = iframe)
-        # expand inner frame to canvas but never smaller then content
-        def configure(event):
+
+        def configure(event): # if outer frame size changes
+            # expand inner frame to canvas but never smaller then content
             canvas.itemconfig(window, width = max(self.winfo_reqwidth(), event.width), height = max(self.winfo_reqheight(), event.height))
 
-        oframe.bind('<Configure>', configure)
-        # set canvas size and scrollregion to content size
-        def configure(event):
+        canvas.bind('<Configure>', configure)
+
+        def configure(event): # if content size changes
+            # set canvas size and scrollregion to content size
             width = self.winfo_reqwidth()
             height = self.winfo_reqheight()
 
             canvas.config(width = width, height = height, scrollregion = (0, 0, width, height))
+            # increase inner frame if content size is bigger than canvas
+            canvas.itemconfig(window, width = max(width, oframe.winfo_width()), height = max(height,  oframe.winfo_height()))
 
         self.bind('<Configure>', configure)
         # set class pack managers to outer frame managers
@@ -66,7 +70,7 @@ class ScrollableFrame(tkinter.Frame):
         destroy = self.destroy # destroy itself first otherwise this will result in an infinite loop because oframe.destroy would call self.destroy
         self.destroy = lambda: (destroy(), oframe.destroy())
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import MediaFrame
     from IndexFrame import ImageMap
 
@@ -75,6 +79,6 @@ if __name__ == "__main__":
     frame = ScrollableFrame(root)
     frame.pack(fill = tkinter.BOTH)
 
-    MediaFrame.MediaFrame(frame, str(ImageMap()._data.popitem()[1].pop())).pack()
+    MediaFrame.MediaFrame(frame, next(iter(ImageMap()))[1][0], thumbSize = None).pack()
     
     root.mainloop()

@@ -89,7 +89,9 @@ class MediaFrame(tkinter.Frame):
         image = self._image = image.convert('RGB')
 
         thumbnail = self._thumbnail = image.copy()
-        thumbnail.thumbnail(self.thumbSize)
+
+        if self.thumbSize:
+            thumbnail.thumbnail(self.thumbSize)
 
         self._setPhoto(thumbnail)
 
@@ -164,15 +166,11 @@ class MediaFrame(tkinter.Frame):
     def isImage(self) -> bool:
         return not self._delay
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from IndexFrame import ImageMap
 
     root = tkinter.Tk()
     
-    # help(root)
-    
-    # exit()
-
     frame = MediaFrame(root, str(ImageMap()._data.popitem()[1].pop()))
     frame.pack()
 
