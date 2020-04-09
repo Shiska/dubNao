@@ -23,15 +23,12 @@ class SauceNaoFrame(tkinter.Frame):
 
         self.command = command
 
-        imageMap = IndexFrame.imageMap
-        sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
-
         self._snao = pysaucenao.SauceNao()
-        self._items = {key: value for key, value in ((key, {v for v in value if sauceNaoDir in pathlib.Path(v).parents}) for key, value in imageMap) if len(value)}
+        self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
         self._destDir = pathlib.Path(SettingFrame.destDir).resolve()
         self._event_loop = asyncio.get_event_loop()
-        self._imageMap = imageMap
-        self._files = set()
+        self._imageMap = IndexFrame.imageMap
+        self._items = iter(())
 
         oframe = tkinter.LabelFrame(self, text = 'SauceNAO')
         oframe.pack()
@@ -108,17 +105,16 @@ class SauceNaoFrame(tkinter.Frame):
             results = self._event_loop.run_until_complete(self._snao.from_file(file)) # impossible to integrate into mainloop because this shit forces you to use a second event loops
         except pysaucenao.ShortLimitReachedException as e:
             self._messageLabel['text'] = self.removeHTML(e)
-            self._files.add(file)
 
             func = self._next
         except pysaucenao.DailyLimitReachedException as e:
             self._messageLabel['text'] = self.removeHTML(e)
 
-            func = lambda: self._executeCommand()
+            func = self._executeCommand
         except Exception as e:
             self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
 
-            func = lambda: self._executeCommand()
+            func = self._executeCommand
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 
@@ -127,20 +123,20 @@ class SauceNaoFrame(tkinter.Frame):
         self.after(7500, func)
 
     def _next(self):
-        if len(self._files):
-            file = self._files.pop()
+        file = next(self._items, None)
 
-            self._imageFrame['text'] = pathlib.Path(file).name + ' (' + str(len(self._items)) + ' remaining)'
-            self._mediaFrame.open(file)
+        if not file:
+            self._items = (v for key, value in self._imageMap for v in value if self._sauceNaoDir in pathlib.Path(v).parents)
 
-            threading.Thread(target = self._check, args = (file, ), daemon = True).start()
-        else:
-            if len(self._items) == 0:
-                self._executeCommand()
-            else:
-                (key, self._files) = self._items.popitem()
+            file = next(self._items, None)
 
-                self.after_idle(self._next)
+            if not file: # no more files found
+                return self.after_idle(self._executeCommand)
+
+        self._imageFrame['text'] = pathlib.Path(file).name
+        self._mediaFrame.open(file)
+
+        threading.Thread(target = self._check, args = (file, ), daemon = True).start()
 
     def _executeCommand(self):
         if self.command:

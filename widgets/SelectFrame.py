@@ -28,6 +28,7 @@ class SelectFrame(tkinter.Frame):
 
         self.command = command
 
+        self._after = None
         self._imageMap =  IndexFrame.imageMap
         self._destDir = pathlib.Path(SettingFrame.destDir)
         self._selectDir = pathlib.Path(SettingFrame.selectDir)
@@ -101,7 +102,10 @@ class SelectFrame(tkinter.Frame):
         frame = tkinter.Frame(oframe)
         frame.pack(expand = True, fill = tkinter.X)
 
-        tkinter.Button(frame, text = 'Next (Right)', command = self.next).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        self._nextButton = tkinter.Button(frame, command = self.next)
+        self._nextButton._text = self._nextButton['text'] = 'Next (Right)'
+        self._nextButton.pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+
         tkinter.Button(frame, text = 'Difference (Up)', command = self.difference).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
         tkinter.Button(frame, text = 'Delete (Down)', command = self.delete).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
@@ -135,6 +139,8 @@ class SelectFrame(tkinter.Frame):
         self._frame = tkinter.Frame(master)
         self._frame.pack(fill = tkinter.BOTH)
 
+        self._stopAutoselect()
+
         return self._frame
 
     @staticmethod
@@ -156,8 +162,9 @@ class SelectFrame(tkinter.Frame):
 
     def _preselectCheckbox(self, data):
         selectIdx = None
-        
-        if max(data['difference']) < 32: # preselect best picture if highest difference is small
+        maxdiff = max(data['difference'])
+
+        if maxdiff < 32: # preselect best picture if highest difference is small
             maxsize = max(data['size'])
             victims = [idx for idx, size in enumerate(data['size']) if size == maxsize]
 
@@ -167,11 +174,34 @@ class SelectFrame(tkinter.Frame):
                 victims = [victims[idx] for idx, size in enumerate(sizes) if size == maxsize]
 
                 if len(victims) > 1:
-                    victims = [idx for idx in victims if data['file'][idx].parent != self._destDir]
+                    newvictims = [idx for idx in victims if data['file'][idx].parent != self._selectDir]
+
+                    if len(newvictims):
+                        victims = newvictims
+
+                        if maxdiff == 0:
+                            self._autoselect(5)
 
             selectIdx = victims[0]
 
         return selectIdx
+
+    def _autoselect(self, seconds):
+        if seconds == 0:
+            self._stopAutoselect()
+            self.after_idle(self.next)
+        else:
+            self._nextButton['text'] = 'Autoselect in ' + str(seconds) + ' seconds (Right)'
+            self._after = self.after(1000, lambda: self._autoselect(seconds - 1))
+
+    def _stopAutoselect(self):
+        if self._after:
+            self._nextButton['text'] = self._nextButton._text
+            self.after_cancel(self._after)
+            self._after = None
+            return True
+
+        return False
 
     @staticmethod
     def groupData(data):
@@ -303,18 +333,21 @@ class SelectFrame(tkinter.Frame):
         self._showNext()
 
     def next(self, event = None):
-        for _, mediaFrame in self.iterImages():
-            mediaFrame.release()
-            file = mediaFrame._file
+        if self._after:
+            self._stopAutoselect()
+        else:
+            for _, mediaFrame in self.iterImages():
+                mediaFrame.release()
+                file = mediaFrame._file
 
-            if mediaFrame._var.get():
-                if str(file) in self._files: # move only files from the original items
-                    self._imageMap.moveFileTo(file, self._sauceNaoDir)
-            else:
-                self._imageMap.moveFileToTrash(file)
+                if mediaFrame._var.get():
+                    if str(file) in self._files: # move only files from the original items
+                        self._imageMap.moveFileTo(file, self._sauceNaoDir)
+                else:
+                    self._imageMap.moveFileToTrash(file)
 
-        self._imageMap.store()
-        self._showNext()
+            self._imageMap.store()
+            self._showNext()
 
     def _showNext(self):
         (key, self._files) = next(self._items, (None, None))
@@ -369,7 +402,7 @@ class SelectFrame(tkinter.Frame):
                 file = mediaFrame._file
                 var = mediaFrame._var
 
-                var.set(selected == None or selected == idx or str(file) not in self._files)
+                var.set(selected == None or selected == idx)
 
                 tkinter.Checkbutton(frame, text = file.name, variable = var, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = idx)
 
