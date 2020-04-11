@@ -64,7 +64,8 @@ class Application(tkinter.Tk):
 
     def _start(self):
         self._start = lambda: None
-        self._sauceNao()
+        # self._sauceNao()
+        self._select()
 
     def _clickedFrame(self, frame):
         def clicked():

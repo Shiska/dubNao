@@ -12,7 +12,8 @@ sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
 from SettingFrame import SettingFrame
 
 class ImageMap():
-    def __init__(self, filename: str = 'imageshashes.pkl'):
+    def __init__(self, filename: str = 'imageshashes.pkl', minsize = 200):
+        self._minsize = minsize
         self._filename = filename
         self._trashDir = pathlib.Path(SettingFrame.trashDir)
 
@@ -46,11 +47,13 @@ class ImageMap():
 
         if imghdr.what(file):
             try:
-                image = PIL.Image.open(file)
+                with PIL.Image.open(file) as image:
+                    if image.width > self._minsize or image.height > self._minsize:
+                        return str(imagehash.phash(image.convert('RGBA')))
             except PIL.UnidentifiedImageError:
                 pass
             else:
-                return str(imagehash.phash(image.convert('RGBA')))
+                file.unlink()
 
     def delete(self, filename: str = None, hash: str = None):
         if filename:
@@ -69,33 +72,34 @@ class ImageMap():
         elif hash:
             hash = self._data.pop(hash, None)
 
+    def _iter_(self):
+        delete = []
+        
+        for hash, value in self._data.items():
+            files = [v for v in map(pathlib.Path, value) if v.exists()]
+
+            delete.extend(((v, hash) for v in value.difference(map(str, files))))
+
+            yield hash, files
+
+        for v, hash in delete:
+            self.delete(v, hash)
+
+        self.store()
+
     def __iter__(self):
-        for hash, value in list(self._data.items()):
-            files = []
+        for hash, value in self._iter_():
+            value = [str(v) for v in value if v.parent != self._trashDir]
 
-            for v in map(pathlib.Path, list(value)):
-                if not v.exists():
-                    self.delete(filename = v, hash = hash)
-                    self.store()
-                elif v.parent != self._trashDir:
-                    files.append(str(v))
-
-            if len(files):
-                yield hash, files
+            if len(value):
+                yield hash, value
 
     def trash(self):
-        for hash, value in list(self._data.items()):
-            files = []
+        for hash, value in self._iter_():
+            value = [str(v) for v in value if v.parent == self._trashDir]
 
-            for v in map(pathlib.Path, list(value)):
-                if not v.exists():
-                    self.delete(filename = v, hash = hash)
-                    self.store()
-                elif v.parent == self._trashDir:
-                    files.append(str(v))
-
-            if len(files):
-                yield hash, files
+            if len(value):
+                yield hash, value
 
     def __getitem__(self, key):
         return (v for v in self._data[key] if pathlib.Path(v).parent != self._trashDir)

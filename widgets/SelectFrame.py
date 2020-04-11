@@ -1,6 +1,7 @@
 import sys
 import pathlib
 import tkinter
+import collections
 
 import PIL.ImageTk
 import PIL.ImageChops
@@ -126,7 +127,7 @@ class SelectFrame(tkinter.Frame):
 
         self._frame = tkinter.Frame(keyFrame)
 
-        self._showNext()
+        self.skip()
 
     def _newFrame(self, text: str = ''):
         self._inFrame = self._diffFrame = None
@@ -218,8 +219,8 @@ class SelectFrame(tkinter.Frame):
             enum = list(enumerate(value))
             groups = {v1: [idx for idx, v2 in enum if v1 == v2] for v1 in value}
             sortByValue = sorted(groups.items(), key = lambda x: x[0], reverse = True)
-            sortByLen = sorted([x[1] for x in sortByValue], key = len, reverse = True)
-            ranking[key] = {i: pos for pos, indices in enumerate(sortByLen) for i in indices}
+            # sortByLen = sorted([x[1] for x in sortByValue], key = len, reverse = True)
+            ranking[key] = {i: pos for pos, indices in enumerate(sortByValue) for i in indices[1]}
 
         return ranking
 
@@ -228,12 +229,9 @@ class SelectFrame(tkinter.Frame):
         return cls.colors.get(idx, 'black')
 
     def iterImages(self):
-        (columns, _) = self._frame.grid_size()
-
-        for c in range(columns):
-            mediaLabel = self._frame.grid_slaves(row = 2, column = c)[0]
-
-            yield mediaLabel, mediaLabel.grid_slaves()[0]
+        for mediaLabel in self._frame.grid_slaves():
+            if isinstance(mediaLabel, tkinter.LabelFrame):
+                yield mediaLabel, mediaLabel.grid_slaves()[0]
 
     def _resizeImage(self, image):
         if image.width > image.height:
@@ -330,7 +328,7 @@ class SelectFrame(tkinter.Frame):
             self._imageMap.moveFileToTrash(mediaFrame._file)
 
         self._imageMap.store()
-        self._showNext()
+        self.skip()
 
     def next(self, event = None):
         if self._after:
@@ -347,9 +345,9 @@ class SelectFrame(tkinter.Frame):
                     self._imageMap.moveFileToTrash(file)
 
             self._imageMap.store()
-            self._showNext()
+            self.skip()
 
-    def _showNext(self):
+    def skip(self, event = None):
         (key, self._files) = next(self._items, (None, None))
 
         if key:
@@ -361,11 +359,10 @@ class SelectFrame(tkinter.Frame):
                 lframe = tkinter.LabelFrame(frame)
                 lframe.columnconfigure(0, minsize = self.thumbnailSize + 10)
                 lframe.rowconfigure(0, minsize = self.thumbnailSize + 10)
-                lframe.grid(row = 2, column = idx)
+                lframe.grid()
 
                 mframe = MediaFrame(lframe, str(file), (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
                 mframe._var = tkinter.BooleanVar()
-                mframe._column = idx
                 mframe._file = file
                 mframe.grid()
 
@@ -397,27 +394,40 @@ class SelectFrame(tkinter.Frame):
             ranking = self.groupData(data)
             selected = self._preselectCheckbox(data)
 
-            for mediaFrame in data['frame']:
-                idx = mediaFrame._column
+            rows = collections.defaultdict(int)
+            length = len(data['frame'])
+            step = 128 // length
+            # sort columns by size
+            columns = {item[0]: idx for idx, item in enumerate(sorted(ranking['size'].items(), key = lambda i: i[1]))}
+
+            for idx, mediaFrame in enumerate(data['frame']):
+                column = columns[idx]
+
                 file = mediaFrame._file
                 var = mediaFrame._var
 
                 var.set(selected == None or selected == idx)
 
-                tkinter.Checkbutton(frame, text = file.name, variable = var, fg = self._getColor(ranking['name'][idx])).grid(row = 0, column = idx)
+                rank = ranking['name'][idx]
+                tkinter.Checkbutton(frame, text = '{} ({})'.format(file.name, rank), variable = var, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 0, column = column)
 
                 hframe = tkinter.Frame(frame)
-                hframe.grid(row = 1, column = idx)
+                hframe.grid(row = 1, column = column)
 
                 tkinter.Label(hframe, text = 'Directory:').grid(row = 1, column = 0, sticky = 'e')
                 tkinter.Label(hframe, text = 'Size:').grid(row = 2, column = 0, sticky = 'e')
                 tkinter.Label(hframe, text = 'Filesize:').grid(row = 3, column = 0, sticky = 'e')
 
-                tkinter.Label(hframe, text = str(file.parent), wraplength = wrap, fg = self._getColor(ranking['dir'][idx])).grid(row = 1, column = 1, sticky = 'w')
-                tkinter.Label(hframe, text = '{} x {}'.format(*data['size'][idx]), wraplength = wrap, fg = self._getColor(ranking['size'][idx])).grid(row = 2, column = 1, sticky = 'w')
-                tkinter.Label(hframe, text = str(data['filesize'][idx]), wraplength = wrap, fg = self._getColor(ranking['filesize'][idx])).grid(row = 3, column = 1, sticky = 'w')
+                rank = ranking['dir'][idx]
+                tkinter.Label(hframe, text = '{} ({})'.format(file.parent, rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 1, column = 1, sticky = 'w')
+                rank = ranking['size'][idx]
+                tkinter.Label(hframe, text = '{} x {} ({})'.format(*data['size'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 2, column = 1, sticky = 'w')
+                rank = ranking['filesize'][idx]
+                tkinter.Label(hframe, text = '{} ({})'.format(data['filesize'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 3, column = 1, sticky = 'w')
 
-            self._onEnterImage(data['frame'][[key for key, value in ranking['size'].items() if value == 0][0]])(None)
+                mediaFrame.master.grid(row = 2, column = column)
+
+            self._onEnterImage(data['frame'][[idx for idx, column in columns.items() if column == 0][0]])(None)
         else:
             if self.command:
                 self.command()

@@ -44,9 +44,17 @@ class TrashFrame(tkinter.Frame):
         frame = self._imageFrame = tkinter.LabelFrame(oframe)
         frame.pack()
 
+        tkinter.Label(frame, text = 'Size:').grid(row = 0, column = 0, sticky = 'e')
+        tkinter.Label(frame, text = 'Filesize:').grid(row = 1, column = 0, sticky = 'e')
+
+        self._sizeLabel = tkinter.Label(frame)
+        self._sizeLabel.grid(row = 0, column = 1, sticky = 'w')
+        self._fileSizeLabel = tkinter.Label(frame)
+        self._fileSizeLabel.grid(row = 1, column = 1, sticky = 'w')
+
         mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = self._onFrameChange)
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
-        mediaFrame.pack()
+        mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
         self._showIndex(0)
 
@@ -80,6 +88,9 @@ class TrashFrame(tkinter.Frame):
             self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
             self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
             self._mediaFrame.open(str(file))
+
+            self._sizeLabel['text'] = '{} x {}'.format(*self._mediaFrame._image.size)
+            self._fileSizeLabel['text'] = file.stat().st_size
 
     def previous(self, event = None):
         if self._index != 0:

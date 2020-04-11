@@ -59,7 +59,7 @@ class ScrollableFrame(tkinter.Frame):
 
             canvas.config(width = width, height = height, scrollregion = (0, 0, width, height))
             # increase inner frame if content size is bigger than canvas
-            canvas.itemconfig(window, width = max(width, oframe.winfo_width()), height = max(height,  oframe.winfo_height()))
+            canvas.itemconfig(window, width = max(width, oframe.winfo_width()), height = max(height, oframe.winfo_height()))
 
         self.bind('<Configure>', configure)
         # set class pack managers to outer frame managers
