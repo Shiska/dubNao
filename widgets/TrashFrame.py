@@ -1,12 +1,14 @@
-import sys
 import pathlib
 import tkinter
 
-sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
-
-from MediaFrame import MediaFrame
-from IndexFrame import IndexFrame
-from SettingFrame import SettingFrame
+if '.' in __name__:
+    from .MediaFrame import MediaFrame
+    from .IndexFrame import IndexFrame
+    from .SettingFrame import SettingFrame
+else:
+    from MediaFrame import MediaFrame
+    from IndexFrame import IndexFrame
+    from SettingFrame import SettingFrame
 
 class TrashFrame(tkinter.Frame):
     def __init__(self, master, command = None):

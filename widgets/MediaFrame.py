@@ -9,7 +9,17 @@ import PIL.ImageFile
 
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
+def fdebug(func):
+    def wrapper(self, *args, **kwargs):
+        print(func.__name__, str(args), str(kwargs), flush = True)
+
+        return func(self, *args, **kwargs)
+
+    # return wrapper
+    return func
+
 class MediaFrame(tkinter.Frame):
+    @fdebug
     def __init__(self, master, filename: str = None, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
         super().__init__(master)
 
@@ -32,6 +42,7 @@ class MediaFrame(tkinter.Frame):
         if filename:
             self.open(filename)
 
+    @fdebug
     def open(self, filename: str):
         """ filename:
             - name of video file (eg. video.avi)
@@ -63,13 +74,16 @@ class MediaFrame(tkinter.Frame):
             if self.autoplay:
                 self.play()
 
+    @fdebug
     def _onScaleChanged(self, value: str):
         self._setFrame(int(value))
 
+    @fdebug
     def _setFrame(self, index: int):
         self._video.set(cv2.CAP_PROP_POS_FRAMES, index)
         self._nextFrame()
 
+    @fdebug
     def _nextFrame(self):
         ret, frame = self._video.read()
 
@@ -85,6 +99,7 @@ class MediaFrame(tkinter.Frame):
 
         return ret
 
+    @fdebug
     def _setImage(self, image):
         image = self._image = image.convert('RGB')
         thumbnail = self._thumbnail = image.copy()
@@ -97,15 +112,19 @@ class MediaFrame(tkinter.Frame):
         if self._onFrameChange:
             self._onFrameChange(self, thumbnail)
 
+    @fdebug
     def _setPhoto(self, photo):
-        self['image'] = self.photo = PIL.ImageTk.PhotoImage(image = photo)
+        self.label['image'] = self.photo = PIL.ImageTk.PhotoImage(image = photo)
 
+    @fdebug
     def __getitem__(self, index):
         return self.label[index]
 
+    @fdebug
     def __setitem__(self, index, value):
         self.label[index] = value
 
+    @fdebug
     def play(self):
         if self._delay and not self._after and self._video.isOpened():
             if self._video.get(cv2.CAP_PROP_POS_FRAMES) == self._video.get(cv2.CAP_PROP_FRAME_COUNT): # reset to start if video finished playing
@@ -113,6 +132,7 @@ class MediaFrame(tkinter.Frame):
 
             self._after = self.after(self._delay, self._update)
 
+    @fdebug
     def _update(self):
         if self._video.isOpened():
             ret = self._nextFrame()
@@ -121,30 +141,39 @@ class MediaFrame(tkinter.Frame):
                 self._after = self.after(self._delay, self._update)
             else: # no more frames
                 self._after = None
+            # the gui froze with 3 large gifs playing at the same time...
+            # why does it prioritise to execute the next after instead of updating the idletasks
+            self.update_idletasks()
 
+    @fdebug
     def stop(self):
         if self._after:
             self.after_cancel(self._after)
             self._after = None
 
+    @fdebug
     def toggle(self, *args):
         if self._after:
             self.stop()
         else:
             self.play()
 
+    @fdebug
     def reset(self):
         self._setFrame(0)
 
+    @fdebug
     def release(self):
         self.stop()
         self._video.release()
 
+    @fdebug
     def destroy(self):
         self.release()
 
         return super().destroy()
 
+    @fdebug
     def osOpen(self):
         if platform.system() == 'Darwin':
             subprocess.call(('open', self._filename))
@@ -154,14 +183,17 @@ class MediaFrame(tkinter.Frame):
             subprocess.call(('xdg-open', self._filename))
 
     @property
+    @fdebug
     def isPlaying(self) -> bool:
         return self.isVideo and bool(self._after)
 
     @property
+    @fdebug
     def isVideo(self) -> bool:
         return not self.isImage
 
     @property
+    @fdebug
     def isImage(self) -> bool:
         return not self._delay
 

@@ -1,4 +1,3 @@
-import sys
 import pickle
 import imghdr
 import pathlib
@@ -7,9 +6,10 @@ import imagehash
 import PIL.Image
 import collections
 
-sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
-
-from SettingFrame import SettingFrame
+if '.' in __name__:
+    from .SettingFrame import SettingFrame
+else:
+    from SettingFrame import SettingFrame
 
 class ImageMap():
     def __init__(self, filename: str = 'imageshashes.pkl', minsize = 200):
@@ -45,15 +45,15 @@ class ImageMap():
     def getHash(self, filename: str) -> str:
         file = pathlib.Path(filename)
 
-        if imghdr.what(file):
-            try:
-                with PIL.Image.open(file) as image:
-                    if image.width > self._minsize or image.height > self._minsize:
-                        return str(imagehash.phash(image.convert('RGBA')))
-            except PIL.UnidentifiedImageError:
-                pass
-            else:
-                file.unlink()
+        # if imghdr.what(file):
+        try:
+            with PIL.Image.open(file) as image:
+                if image.width > self._minsize or image.height > self._minsize:
+                    return str(imagehash.phash(image.convert('RGBA')))
+        except PIL.UnidentifiedImageError:
+            pass
+        else:
+            file.unlink()
 
     def delete(self, filename: str = None, hash: str = None):
         if filename:

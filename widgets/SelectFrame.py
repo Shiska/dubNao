@@ -1,4 +1,3 @@
-import sys
 import pathlib
 import tkinter
 import collections
@@ -6,11 +5,14 @@ import collections
 import PIL.ImageTk
 import PIL.ImageChops
 
-sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
-
-from MediaFrame import MediaFrame
-from IndexFrame import IndexFrame
-from SettingFrame import SettingFrame
+if '.' in __name__:
+    from .MediaFrame import MediaFrame
+    from .IndexFrame import IndexFrame
+    from .SettingFrame import SettingFrame
+else:
+    from MediaFrame import MediaFrame
+    from IndexFrame import IndexFrame
+    from SettingFrame import SettingFrame
 
 class SelectFrame(tkinter.Frame):
     thumbnailSize = 300
@@ -181,7 +183,7 @@ class SelectFrame(tkinter.Frame):
                         victims = newvictims
 
                         if maxdiff == 0:
-                            self._autoselect(5)
+                            self._autoselect(SettingFrame.autoselect)
 
             selectIdx = victims[0]
 

@@ -1,6 +1,5 @@
 import re
 import io
-import sys
 import asyncio
 import pathlib
 import slugify
@@ -11,11 +10,14 @@ import collections
 import urllib.request
 import PIL.Image, PIL.ImageTk
 
-sys.path = list(set((*sys.path, str(pathlib.Path(__file__).parent))))
-
-from MediaFrame import MediaFrame
-from IndexFrame import IndexFrame
-from SettingFrame import SettingFrame
+if '.' in __name__:
+    from .MediaFrame import MediaFrame
+    from .IndexFrame import IndexFrame
+    from .SettingFrame import SettingFrame
+else:
+    from MediaFrame import MediaFrame
+    from IndexFrame import IndexFrame
+    from SettingFrame import SettingFrame
 
 class SauceNaoFrame(tkinter.Frame):
     def __init__(self, master, command = None):

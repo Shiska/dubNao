@@ -15,8 +15,12 @@ import pkgutil
 
 __all__ = []
 
-for loader, name, is_pkg in  pkgutil.walk_packages(__path__):
-    if not is_pkg:
+import importlib
+
+for finder, name, ispkg in pkgutil.walk_packages(__path__):
+    if not ispkg:
+        module = importlib.import_module('.' + name, __name__)
+        # someone said __all__ is used for documentation
         __all__.append(name)
-        # load the class inside each module 
-        globals()[name] = getattr(loader.find_module(name).load_module(name), name)
+        # # load the class inside each module 
+        globals()[name] = getattr(module, name)

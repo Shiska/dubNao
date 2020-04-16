@@ -63,10 +63,14 @@ class SettingFrame(tkinter.LabelFrame):
         tkinter.Label(frame, text = 'Ignore').grid(row = 0, column = self.column.Ignore)
 
         frame = tkinter.LabelFrame(self, text = 'Misc')
+        frame.grid_columnconfigure(0, weight = 1)
+        frame.grid_columnconfigure(3, weight = 1)
         frame.pack(fill = tkinter.X)
 
-        tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).pack()
-        tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = self._duplicates).pack()
+        tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).grid(column = 1, columnspan = 2)
+        tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = self._duplicates).grid(column = 1, columnspan = 2)
+        tkinter.Label(frame, text = 'Autoselect (seconds): ').grid(row = 2, column = 1, sticky = 'e')
+        tkinter.Spinbox(frame, from_ = 1, to_ = 99, width = 2, textvariable = self._autoselect).grid(row = 2, column = 2, sticky = 'w')
 
         frame = tkinter.Frame(self)
         frame.pack(fill = tkinter.X)
@@ -79,15 +83,16 @@ class SettingFrame(tkinter.LabelFrame):
         with open(cls.dirFile, 'rb') as file:
             data = pickle.load(file)
 
-        (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart, duplicates) = data
+        (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart, duplicates, autoselect) = data
 
         cls._duplicates.set(duplicates)
+        cls._autoselect.set(autoselect)
         cls._autostart.set(autostart)
 
     @classmethod
     def _store(cls):
         with open(cls.dirFile, 'wb') as file:
-            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart, cls.duplicates), file)
+            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart, cls.duplicates, cls.autoselect), file)
 
     @classmethod
     def _init(cls):
@@ -96,6 +101,7 @@ class SettingFrame(tkinter.LabelFrame):
         cls._duplicates = tkinter.BooleanVar()
         cls._autostart = tkinter.BooleanVar()
         cls._sauceNao = tkinter.StringVar()
+        cls._autoselect = tkinter.IntVar()
         cls._select = tkinter.StringVar()
         cls._trash = tkinter.StringVar()
         cls._dest = tkinter.StringVar()
@@ -269,6 +275,9 @@ class SettingFrame(tkinter.LabelFrame):
     @classproperty
     def autostart(cls):
         return cls._autostart.get()
+    @classproperty
+    def autoselect(cls):
+        return cls._autoselect.get()
     @classproperty
     def sauceNaoDir(cls):
         return cls._sauceNao._dir

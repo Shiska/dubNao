@@ -6,7 +6,7 @@ class Application(tkinter.Tk):
         super().__init__()
         self.wait_visibility()
 
-        self.attributes('-fullscreen', True)
+        # self.attributes('-fullscreen', True)
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
@@ -64,8 +64,7 @@ class Application(tkinter.Tk):
 
     def _start(self):
         self._start = lambda: None
-        # self._sauceNao()
-        self._select()
+        self._sauceNao()
 
     def _clickedFrame(self, frame):
         def clicked():
