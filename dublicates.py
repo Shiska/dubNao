@@ -7,6 +7,7 @@ class Application(tkinter.Tk):
         self.wait_visibility()
 
         # self.attributes('-fullscreen', True)
+        self.state('zoomed')
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)

@@ -1,11 +1,14 @@
 import os
 import cv2
 import tkinter
+import pathlib
 import platform
 import PIL.Image
 import subprocess
 import PIL.ImageTk
+import PIL.ImageDraw
 import PIL.ImageFile
+import PIL.ImageFont
 
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid image file is truncated
 
@@ -52,27 +55,40 @@ class MediaFrame(tkinter.Frame):
         """
         self._delay = None
         self.scale.pack_forget()
-        self._video.open(filename)
         self._filename = filename
 
-        isOpened = self._video.isOpened()
+        if pathlib.Path(filename).exists():
+            self._video.open(filename)
 
-        if isOpened: # file was opened, check if first frame is readable
-            isOpened = self._nextFrame()
+            isOpened = self._video.isOpened()
 
-        if not isOpened:
-            self._setImage(PIL.Image.open(filename))
+            if isOpened: # file was opened, check if first frame is readable
+                isOpened = self._nextFrame()
+
+            if not isOpened:
+                self._setImage(PIL.Image.open(filename))
+            else:
+                frame_count = self._video.get(cv2.CAP_PROP_FRAME_COUNT)
+
+                if frame_count > 1:
+                    self._delay = int(1000 // self._video.get(cv2.CAP_PROP_FPS))
+
+                    self.scale.config(to = frame_count - 1, length = self.label.winfo_reqwidth())
+                    self.scale.pack()
+
+                if self.autoplay:
+                    self.play()
         else:
-            frame_count = self._video.get(cv2.CAP_PROP_FRAME_COUNT)
+            text = 'File "' + filename + '" not found'
+            font = PIL.ImageFont.load_default()
+            width = font.getsize(text)
 
-            if frame_count > 1:
-                self._delay = int(1000 // self._video.get(cv2.CAP_PROP_FPS))
+            img = PIL.Image.new('RGBA', (width[0] + 20, width[1] + 20))
+             
+            PIL.ImageDraw.Draw(img).text((10, 10), 'File "' + filename + '" not found', fill = 'black')
 
-                self.scale.config(to = frame_count - 1, length = self.label.winfo_reqwidth())
-                self.scale.pack()
-
-            if self.autoplay:
-                self.play()
+            self.thumbSize = None # avoid resizing
+            self._setImage(img)
 
     @fdebug
     def _onScaleChanged(self, value: str):
@@ -101,7 +117,7 @@ class MediaFrame(tkinter.Frame):
 
     @fdebug
     def _setImage(self, image):
-        image = self._image = image.convert('RGB')
+        image = self._image = image.convert('RGBA')
         thumbnail = self._thumbnail = image.copy()
 
         if self.thumbSize:

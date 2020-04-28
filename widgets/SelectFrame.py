@@ -74,9 +74,15 @@ class SelectFrame(tkinter.Frame):
                 parents = file.parents
 
                 if all(p not in ignoreDirs for p in parents):
-                    fileLabel['text'] = str(file)
+                    with PIL.Image.open(file) as image:
+                        pass # just open and close it again, data stays in image object
 
-                    self._imageMap.moveFileTo(file, self._selectDir)
+                    if image.width > 200 or image.height > 200:
+                        fileLabel['text'] = str(file)
+
+                        self._imageMap.moveFileTo(file, self._selectDir)
+                    else: # delete small files
+                        file.unlink()
 
                 self.after_idle(moveFiles)
             else:
@@ -247,7 +253,7 @@ class SelectFrame(tkinter.Frame):
         for mediaLabel, mediaFrame in self.iterImages():
             (diffImage, difference) = self.getDifference(thumbnail, self._resizeImage(mediaFrame._image))
 
-            mediaFrame['image'] = mediaFrame.diff = PIL.ImageTk.PhotoImage(diffImage)
+            mediaFrame['image'] = mediaFrame.diff = PIL.ImageTk.PhotoImage(diffImage.convert('RGB'))
             mediaLabel['text'] = 'Difference: ' + str(difference)
             mediaFrame._difference = difference
 
@@ -438,7 +444,7 @@ if __name__ == '__main__':
     from ScrollableFrame import ScrollableFrame
 
     root = tkinter.Tk()
-    root.attributes('-fullscreen', True)
+    root.state('zoomed')
     root.wait_visibility()
 
     frame = ScrollableFrame(root)
@@ -446,8 +452,4 @@ if __name__ == '__main__':
 
     SelectFrame(frame, command = lambda: root.after_idle(root.destroy)).pack(expand = True, fill = tkinter.BOTH)
 
-    menubar = tkinter.Menu(root)
-    menubar.add_command(label = 'Quit', command = root.destroy)
-
-    root.config(menu = menubar)
     root.mainloop()

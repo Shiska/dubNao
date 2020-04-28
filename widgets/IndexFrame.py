@@ -12,8 +12,7 @@ else:
     from SettingFrame import SettingFrame
 
 class ImageMap():
-    def __init__(self, filename: str = 'imageshashes.pkl', minsize = 200):
-        self._minsize = minsize
+    def __init__(self, filename: str = 'imageshashes.pkl'):
         self._filename = filename
         self._trashDir = pathlib.Path(SettingFrame.trashDir)
 
@@ -48,12 +47,9 @@ class ImageMap():
         # if imghdr.what(file):
         try:
             with PIL.Image.open(file) as image:
-                if image.width > self._minsize or image.height > self._minsize:
-                    return str(imagehash.phash(image.convert('RGBA')))
+                return str(imagehash.phash(image.convert('RGBA')))
         except PIL.UnidentifiedImageError:
             pass
-        else:
-            file.unlink()
 
     def delete(self, filename: str = None, hash: str = None):
         if filename:
