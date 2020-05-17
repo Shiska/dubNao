@@ -127,16 +127,34 @@ class TrashFrame(tkinter.Frame):
         file.unlink()
 
     def clear(self, event = None):
-        self._empty()
+        for oframe in self.pack_slaves():
+            for s in oframe.pack_slaves():
+                s.destroy()
+
+        frame = tkinter.Frame(oframe)
+        frame.grid_columnconfigure(1, weight = 1)
+        frame.pack()
+
+        tkinter.Label(frame, text = 'Deleting file:').grid(row = 0, column = 0, sticky = 'e')
+
+        fileLabel = tkinter.Label(frame)
+        fileLabel.grid(row = 0, column = 1, sticky = 'w')
+
+        fileLabel.bind('<Configure>', lambda event: frame.grid_columnconfigure(1, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
         def step():
             if len(self._items):
                 file = self._items.pop()
 
+                fileLabel['text'] = file.name
+
                 self._imageMap.delete(file)
+
                 file.unlink()
 
                 self.after_idle(step)
+            else:
+                self._empty()
 
         step()
 
