@@ -11,12 +11,12 @@ class Application(tkinter.Tk):
         self.title('Dublicate finder')
 
         self.menubar = tkinter.Menu(self)
-        self.menubar.add_command(label = 'Indexing', command = self._clickedFrame(self._index))
-        self.menubar.add_command(label = 'Selection', command = self._clickedFrame(self._select))
+        # self.menubar.add_command(label = 'Indexing', command = self._clickedFrame(self._index))
+        self.menubar.add_command(label = 'Selection', command = self._clickedFrame(self._index))
         self.menubar.add_command(label = 'SauceNAO', command = self._clickedFrame(self._sauceNao))
         self.menubar.add_command(label = 'Trash', command = self._clickedFrame(self._trash))
         self.menubar.add_command(label = 'Settings', command = self._showSettings)
-        self.menubar.add_command(label = 'Quit', command = self.destroy)
+        # self.menubar.add_command(label = 'Quit', command = self.destroy)
 
         self.config(menu = self.menubar)
 
@@ -86,14 +86,14 @@ class Application(tkinter.Tk):
 
         return self._frame
 
-    def _sauceNao(self):
-        self._setFrame(widgets.SauceNaoFrame, command = self._index)
+    def _sauceNao(self, command = None):
+        self._setFrame(widgets.SauceNaoFrame, command = command if command else self._index)
 
     def _index(self):
         self._setFrame(widgets.IndexFrame, command = self._select)
 
     def _select(self):
-        self._setFrame(widgets.SelectFrame, command = self._trash)
+        self._setFrame(widgets.SelectFrame, command = lambda: self._sauceNao(self._trash))
 
     def _trash(self):
         self._setFrame(widgets.TrashFrame)

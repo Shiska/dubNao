@@ -70,7 +70,7 @@ class SettingFrame(tkinter.LabelFrame):
         tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).grid(column = 1, columnspan = 2)
         tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = self._duplicates).grid(column = 1, columnspan = 2)
         tkinter.Label(frame, text = 'Autoselect (seconds): ').grid(row = 2, column = 1, sticky = 'e')
-        tkinter.Spinbox(frame, from_ = 1, to_ = 99, width = 2, textvariable = self._autoselect).grid(row = 2, column = 2, sticky = 'w')
+        tkinter.Spinbox(frame, from_ = 0, to_ = 99, width = 2, textvariable = self._autoselect).grid(row = 2, column = 2, sticky = 'w')
 
         frame = tkinter.Frame(self)
         frame.pack(fill = tkinter.X)

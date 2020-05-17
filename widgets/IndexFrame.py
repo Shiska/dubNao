@@ -70,7 +70,7 @@ class ImageMap():
 
     def _iter_(self):
         delete = []
-        
+
         for hash, value in self._data.items():
             files = [v for v in map(pathlib.Path, value) if v.exists()]
 

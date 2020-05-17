@@ -42,6 +42,7 @@ class TrashFrame(tkinter.Frame):
 
         tkinter.Button(iframe, text = 'Restore (Up)', command = self.restore).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
         tkinter.Button(iframe, text = 'Delete (Down)', command = self.delete).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(iframe, text = 'Delete All', command = self.clear).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         frame = self._imageFrame = tkinter.LabelFrame(oframe)
         frame.pack()
@@ -58,7 +59,7 @@ class TrashFrame(tkinter.Frame):
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
-        self._showIndex(0)
+        self._showIndex()
 
     def _onFrameChange(self, mframe, thumbnail):
         image = mframe._image.copy()
@@ -76,7 +77,7 @@ class TrashFrame(tkinter.Frame):
 
             tkinter.Label(oframe, text = 'Empty').pack()
 
-    def _showIndex(self, index):
+    def _showIndex(self, index = 0):
         length = len(self._items)
 
         if length == 0:
@@ -124,6 +125,20 @@ class TrashFrame(tkinter.Frame):
 
         self._imageMap.delete(file)
         file.unlink()
+
+    def clear(self, event = None):
+        self._empty()
+
+        def step():
+            if len(self._items):
+                file = self._items.pop()
+
+                self._imageMap.delete(file)
+                file.unlink()
+
+                self.after_idle(step)
+
+        step()
 
 if __name__ == '__main__':
     root = tkinter.Tk()

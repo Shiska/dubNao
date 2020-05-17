@@ -38,12 +38,12 @@ class SelectFrame(tkinter.Frame):
         self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
 
         self.focus_set()
-        self._initMove()
+        self.after_idle(self._initMove)
 
     def _initMove(self): # copied from indexFrame
         selectDirs = set(map(pathlib.Path, SettingFrame.selectDirs))
 
-        self._items = ((key, v) for key, value in self._imageMap for v in map(pathlib.Path, value) if any(p in selectDirs for p in v.parents))
+        self._items = [(key, v) for key, value in self._imageMap for v in map(pathlib.Path, value) if any(p in selectDirs for p in v.parents)]
 
         oframe = tkinter.Frame(self)
         oframe.pack()
@@ -65,9 +65,9 @@ class SelectFrame(tkinter.Frame):
         ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), self._destDir)
 
         def moveFiles():
-            (key, file) = next(self._items, (None, None))
+            if len(self._items):
+                (key, file) = self._items.pop()
 
-            if key:
                 keyLabel['text'] = key
                 fileLabel['text'] = ''
 
@@ -82,6 +82,8 @@ class SelectFrame(tkinter.Frame):
 
                         self._imageMap.moveFileTo(file, self._selectDir)
                     else: # delete small files
+                        self._imageMap.delete(file, key)
+
                         file.unlink()
 
                 self.after_idle(moveFiles)
@@ -94,6 +96,7 @@ class SelectFrame(tkinter.Frame):
         self.after_idle(moveFiles)
 
     def _initSelect(self):
+        # todo check imageMap for deleted files
         if SettingFrame.duplicates:
             self._items = ((key, value) for key, value in self._imageMap if len(value) > 1 or self._selectDir in pathlib.Path(value[0]).parents)
         else:
