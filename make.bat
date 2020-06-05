@@ -8,11 +8,11 @@ if not exist env (
 )
 call env\Scripts\activate
 
-REM python -m pip install --upgrade pip
-REM pip install -r requirments.txt
+python -m pip install --upgrade pip
+pip install -r requirments.txt
 
 if "%~x1" EQU ".py" (
-    python dublicates.py "..\Drive_NSFW\Bilder\Anime\SauceNAO\SauceNAO"
+    python dublicates.py
 ) else (
     start pythonw dublicates.py %*
 )
