@@ -95,6 +95,8 @@ class TrashFrame(tkinter.Frame):
             self._sizeLabel['text'] = '{} x {}'.format(*self._mediaFrame._image.size)
             self._fileSizeLabel['text'] = file.stat().st_size
 
+        self.update_idletasks()
+
     def previous(self, event = None):
         if self._index != 0:
             self._showIndex(self._index - 1)

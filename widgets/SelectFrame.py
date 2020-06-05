@@ -149,7 +149,6 @@ class SelectFrame(tkinter.Frame):
 
         self._frame.destroy()
         self._frame = tkinter.Frame(master)
-        self._frame.pack(fill = tkinter.BOTH)
 
         self._stopAutoselect()
 
@@ -363,8 +362,8 @@ class SelectFrame(tkinter.Frame):
 
         if key:
             isThereAnyVideo = False
-            wrap = self.thumbnailSize * 3 // 4
             frame = self._newFrame(key)
+            wrap = self.thumbnailSize * 3 // 4
 
             for idx, file in enumerate(map(pathlib.Path, self._imageMap[key])):
                 lframe = tkinter.LabelFrame(frame)
@@ -439,6 +438,8 @@ class SelectFrame(tkinter.Frame):
                 mediaFrame.master.grid(row = 2, column = column)
 
             self._onEnterImage(data['frame'][[idx for idx, column in columns.items() if column == 0][0]])(None)
+
+            frame.pack(fill = tkinter.BOTH)
         else:
             if self.command:
                 self.command()
