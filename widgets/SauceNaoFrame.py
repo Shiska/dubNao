@@ -68,8 +68,12 @@ class SauceNaoFrame(tkinter.Frame):
         for result in results:
             for key, value in result.data.items():
                 data[key].append(slugify.slugify(str(value)))
-
-        data = {key: '-'.join(sorted(list(set('-'.join(value).split('-'))))) for key, value in data.items()}
+        # 1. split all values by spaces, now '-' after slugify (join + split)
+        # 2. remove dublicated items (set)
+        # 3. filter empty strings
+        # 4. sort list so different orders result in the same output
+        # 5. joint result by spaces '-'
+        data = {key: '-'.join(sorted(filter(None, set('-'.join(value).split('-'))))) for key, value in data.items()}
         
         dirs = []
         name = None
