@@ -120,6 +120,7 @@ class SelectFrame(tkinter.Frame):
 
         tkinter.Button(frame, text = 'Difference (Up)', command = self.difference).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
         tkinter.Button(frame, text = 'Delete (Down)', command = self.delete).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        tkinter.Button(frame, text = 'Uncheck All', command = self.uncheck).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         self._vButtonsFrame = tkinter.Frame(oframe)
         self._vButtonsFrame.pack(expand = True, fill = tkinter.X)
@@ -339,6 +340,10 @@ class SelectFrame(tkinter.Frame):
 
         self._imageMap.store()
         self.skip()
+
+    def uncheck(self, event = None):
+        for _, mediaFrame in self.iterImages():
+            mediaFrame._var.set(False);
 
     def next(self, event = None):
         if self._after:
