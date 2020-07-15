@@ -123,10 +123,17 @@ class MediaFrame(tkinter.Frame):
         if self.thumbSize:
             thumbnail.thumbnail(self.thumbSize)
 
-        self._setPhoto(thumbnail)
-
         if self._onFrameChange:
-            self._onFrameChange(self, thumbnail)
+            self._setPhoto(self._onFrameChange(self, thumbnail) or thumbnail)
+        else:
+            self._setPhoto(thumbnail)
+
+    @staticmethod
+    def thumbnailScreensize(frame, image):
+        image = image.copy()
+        image.thumbnail((min(image.width, frame.winfo_screenwidth() * 95 // 100), min(image.height, frame.winfo_screenheight() * 85 // 100)))
+
+        return image
 
     @fdebug
     def _setPhoto(self, photo):

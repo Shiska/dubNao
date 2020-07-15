@@ -55,17 +55,11 @@ class TrashFrame(tkinter.Frame):
         self._fileSizeLabel = tkinter.Label(frame)
         self._fileSizeLabel.grid(row = 1, column = 1, sticky = 'w')
 
-        mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = self._onFrameChange)
+        mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = lambda mframe, thumbnail: MediaFrame.thumbnailScreensize(self, mframe._image))
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
         self._showIndex()
-
-    def _onFrameChange(self, mframe, thumbnail):
-        image = mframe._image.copy()
-        image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
-
-        mframe._setPhoto(image)
 
     def _empty(self):
         if self.command:

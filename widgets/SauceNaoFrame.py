@@ -38,7 +38,7 @@ class SauceNaoFrame(tkinter.Frame):
         frame = self._imageFrame = tkinter.LabelFrame(oframe)
         frame.pack()
 
-        mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = self._onFrameChange)
+        mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = lambda mframe, thumbnail: MediaFrame.thumbnailScreensize(self, mframe._image))
         mediaFrame.pack()
 
         label = self._messageLabel = tkinter.Label(oframe)
@@ -55,12 +55,6 @@ class SauceNaoFrame(tkinter.Frame):
     @classmethod
     def removeHTML(cls, text):
         return cls._removeHTML.sub('', str(text))
-
-    def _onFrameChange(self, mframe, thumbnail):
-        image = mframe._image.copy()
-        image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
-
-        mframe._setPhoto(image)
 
     def _getDestFolder(self, results):
         data = collections.defaultdict(list)

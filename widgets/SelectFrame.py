@@ -298,10 +298,7 @@ class SelectFrame(tkinter.Frame):
                 mframe['image'] = mframe.diff = PIL.ImageTk.PhotoImage(diffImage)
                 mframe.master['text'] = 'Difference: ' + str(difference)
         elif self._inFrame == mframe:
-            image = self._inFrame._image.copy()
-            image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
-
-            self._inFrame._setPhoto(image)
+            return MediaFrame.thumbnailScreensize(self, self._inFrame._image)
 
     def _popup(self, mframe):
         def popup(event):
