@@ -25,28 +25,20 @@ class SettingFrame(tkinter.LabelFrame):
 
         self._init()
 
-        self._sauceNao.trace('w', lambda *args: self._setDir(self._sauceNao, self._sauceNao.get()))
-        self._select.trace('w', lambda *args: self._setDir(self._select, self._select.get()))
-        self._trash.trace('w', lambda *args: self._setDir(self._trash, self._trash.get()))
+        self._temp.trace('w', lambda *args: self._setDir(self._temp, self._temp.get()))
         self._dest.trace('w', lambda *args: self._setDir(self._dest, self._dest.get()))
 
         frame = tkinter.LabelFrame(self, text = 'Directories')
         frame.grid_columnconfigure(1, weight = 1)
         frame.pack(fill = tkinter.X)
 
-        tkinter.Label(frame, text = 'SauceNao: ').grid(row = 0, column = 0, sticky = 'e')
-        tkinter.Label(frame, text = 'Select: ').grid(row = 1, column = 0, sticky = 'e')
-        tkinter.Label(frame, text = 'Trash: ').grid(row = 2, column = 0, sticky = 'e')
+        tkinter.Label(frame, text = 'Tmp: ').grid(row = 2, column = 0, sticky = 'e')
         tkinter.Label(frame, text = 'Dest: ').grid(row = 3, column = 0, sticky = 'e')
 
-        tkinter.Entry(frame, textvariable = self._sauceNao).grid(row = 0, column = 1, sticky = 'ew')
-        tkinter.Entry(frame, textvariable = self._select).grid(row = 1, column = 1, sticky = 'ew')
-        tkinter.Entry(frame, textvariable = self._trash).grid(row = 2, column = 1, sticky = 'ew')
+        tkinter.Entry(frame, textvariable = self._temp).grid(row = 2, column = 1, sticky = 'ew')
         tkinter.Entry(frame, textvariable = self._dest).grid(row = 3, column = 1, sticky = 'ew')
 
-        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._sauceNao)).grid(row = 0, column = 2, padx = 2.5, sticky = 'w')
-        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._select)).grid(row = 1, column = 2, padx = 2.5, sticky = 'w')
-        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._trash)).grid(row = 2, column = 2, padx = 2.5, sticky = 'w')
+        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._temp)).grid(row = 2, column = 2, padx = 2.5, sticky = 'w')
         tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._dest)).grid(row = 3, column = 2, padx = 2.5, sticky = 'w')
 
         frame = self._folderFrame = tkinter.LabelFrame(self, text = 'Search')
@@ -83,7 +75,7 @@ class SettingFrame(tkinter.LabelFrame):
         with open(cls.dirFile, 'rb') as file:
             data = pickle.load(file)
 
-        (cls._directories, cls._sauceNao._dir, cls._select._dir, cls._trash._dir, cls._dest._dir, autostart, duplicates, autoselect) = data
+        (cls._directories, cls._temp._dir, cls._dest._dir, autostart, duplicates, autoselect) = data
 
         cls._duplicates.set(duplicates)
         cls._autoselect.set(autoselect)
@@ -92,7 +84,7 @@ class SettingFrame(tkinter.LabelFrame):
     @classmethod
     def _store(cls):
         with open(cls.dirFile, 'wb') as file:
-            pickle.dump((cls._directories, cls.sauceNaoDir, cls.selectDir, cls.trashDir, cls.destDir, cls.autostart, cls.duplicates, cls.autoselect), file)
+            pickle.dump((cls._directories, cls.tempDir, cls.destDir, cls.autostart, cls.duplicates, cls.autoselect), file)
 
     @classmethod
     def _init(cls):
@@ -100,10 +92,8 @@ class SettingFrame(tkinter.LabelFrame):
 
         cls._duplicates = tkinter.BooleanVar()
         cls._autostart = tkinter.BooleanVar()
-        cls._sauceNao = tkinter.StringVar()
         cls._autoselect = tkinter.IntVar()
-        cls._select = tkinter.StringVar()
-        cls._trash = tkinter.StringVar()
+        cls._temp = tkinter.StringVar()
         cls._dest = tkinter.StringVar()
 
         if pathlib.Path(cls.dirFile).is_file():
@@ -112,19 +102,13 @@ class SettingFrame(tkinter.LabelFrame):
             cwd = pathlib.Path.cwd()
 
             cls._directories = dict()
-            cls._sauceNao._dir = cwd.joinpath('sauceNao')
-            cls._select._dir = cwd.joinpath('select')
-            cls._trash._dir = cwd.joinpath('trash')
+            cls._temp._dir = cwd.joinpath('tmp')
             cls._dest._dir = cwd.joinpath('dest')
 
-            pathlib.Path.mkdir(cls._sauceNao._dir, exist_ok = True)
-            pathlib.Path.mkdir(cls._select._dir, exist_ok = True)
-            pathlib.Path.mkdir(cls._trash._dir, exist_ok = True)
+            pathlib.Path.mkdir(cls._temp._dir, exist_ok = True)
             pathlib.Path.mkdir(cls._dest._dir, exist_ok = True)
 
-            cls._sauceNao._dir = str(cls._sauceNao._dir)
-            cls._select._dir = str(cls._select._dir)
-            cls._trash._dir = str(cls._trash._dir)
+            cls._temp._dir = str(cls._temp._dir)
             cls._dest._dir = str(cls._dest._dir)
 
             cls._store()
@@ -243,9 +227,7 @@ class SettingFrame(tkinter.LabelFrame):
         for dir, cboxes in self._directories.items():
             self._add(dir, cboxes)
 
-        self._sauceNao.set(self._sauceNao._dir)
-        self._select.set(self._select._dir)
-        self._trash.set(self._trash._dir)
+        self._temp.set(self._temp._dir)
         self._dest.set(self._dest._dir)
 
     def pack(self, *args, **kwargs):
@@ -279,14 +261,8 @@ class SettingFrame(tkinter.LabelFrame):
     def autoselect(cls):
         return cls._autoselect.get()
     @classproperty
-    def sauceNaoDir(cls):
-        return cls._sauceNao._dir
-    @classproperty
-    def selectDir(cls):
-        return cls._select._dir
-    @classproperty
-    def trashDir(cls):
-        return cls._trash._dir
+    def tempDir(cls):
+        return cls._temp._dir
     @classproperty
     def destDir(cls):
         return cls._dest._dir
@@ -312,9 +288,7 @@ class SettingFrame(tkinter.LabelFrame):
 if __name__ == '__main__':
     root = tkinter.Tk()
 
-    print(SettingFrame.sauceNaoDir, flush = True)
-    print(SettingFrame.selectDir, flush = True)
-    print(SettingFrame.trashDir, flush = True)
+    print(SettingFrame.tempDir, flush = True)
     print(SettingFrame.destDir, flush = True)
     print(SettingFrame.indexDirs, flush = True)
     print(SettingFrame.selectDirs, flush = True)

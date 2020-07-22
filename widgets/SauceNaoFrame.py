@@ -11,12 +11,12 @@ import urllib.request
 import PIL.Image, PIL.ImageTk
 
 if '.' in __name__:
+    from .IndexFrame import ImageMap
     from .MediaFrame import MediaFrame
-    from .IndexFrame import IndexFrame
     from .SettingFrame import SettingFrame
 else:
+    from IndexFrame import ImageMap
     from MediaFrame import MediaFrame
-    from IndexFrame import IndexFrame
     from SettingFrame import SettingFrame
 
 class SauceNaoFrame(tkinter.Frame):
@@ -26,10 +26,10 @@ class SauceNaoFrame(tkinter.Frame):
         self.command = command
 
         self._snao = pysaucenao.SauceNao()
-        self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
+        self._tempDir = pathlib.Path(SettingFrame.tempDir).resolve()
         self._destDir = pathlib.Path(SettingFrame.destDir).resolve()
         self._event_loop = asyncio.get_event_loop()
-        self._imageMap = IndexFrame.imageMap
+        self._data = self.data() #IndexFrame.imageMap
         self._items = iter(())
 
         oframe = tkinter.LabelFrame(self, text = 'SauceNAO')
@@ -45,6 +45,10 @@ class SauceNaoFrame(tkinter.Frame):
         label.pack()
 
         self._next()
+
+    @staticmethod
+    def data():
+        return ImageMap('sauceNao.pkl')
 
     @staticmethod
     async def fetchImage(obj, url):
@@ -96,7 +100,11 @@ class SauceNaoFrame(tkinter.Frame):
 
         self._mediaFrame.release()
 
-        return self._imageMap.moveFileTo(file, dest)
+        dest = self._data.moveFileTo(file, dest)
+
+        self._data.store()
+
+        return dest
 
     def _check(self, file):
         self._messageLabel['text'] = 'Checking...'
@@ -126,15 +134,15 @@ class SauceNaoFrame(tkinter.Frame):
         file = next(self._items, None)
 
         if not file:
-            self._items = (v for key, value in self._imageMap for v in value if self._sauceNaoDir in pathlib.Path(v).parents)
+            self._items = (v for hash, value in self._data for v in map(pathlib.Path, value) if v.parent == self._tempDir)
 
             file = next(self._items, None)
 
             if not file: # no more files found
                 return self.after_idle(self._executeCommand)
 
-        self._imageFrame['text'] = pathlib.Path(file).name
-        self._mediaFrame.open(file)
+        self._imageFrame['text'] = file.name
+        self._mediaFrame.open(str(file))
 
         threading.Thread(target = self._check, args = (file, ), daemon = True).start()
 

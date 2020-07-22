@@ -14,7 +14,7 @@ else:
 class ImageMap():
     def __init__(self, filename: str = 'imageshashes.pkl'):
         self._filename = filename
-        self._trashDir = pathlib.Path(SettingFrame.trashDir)
+        self._modified = False
 
         if pathlib.Path(filename).is_file():
             with open(filename, 'rb') as file:
@@ -23,10 +23,14 @@ class ImageMap():
             self._data = collections.defaultdict(set)
 
     def store(self):
-        with open(self._filename, 'wb') as file:
-            pickle.dump(self._data, file)
+        if self._modified:
+            self._modified = False
+
+            with open(self._filename, 'wb') as file:
+                pickle.dump(self._data, file)
 
     def clear(self):
+        self._modified = True
         self._data.clear()
 
     def __len__(self):
@@ -38,6 +42,8 @@ class ImageMap():
         if hash:
             hash = self._data[hash]
             hash.add(str(filename))
+
+            self._modified = True
 
         return hash
 
@@ -51,7 +57,7 @@ class ImageMap():
         except PIL.UnidentifiedImageError:
             pass
 
-    def delete(self, filename: str = None, hash: str = None):
+    def remove(self, filename: str = None, hash: str = None):
         if filename:
             if not hash:
                 hash = self.getHash(filename)
@@ -65,40 +71,36 @@ class ImageMap():
                         del self._data[hash]
                     else:
                         hset.remove(filename)
+
+                    self._modified = True
         elif hash:
-            hash = self._data.pop(hash, None)
+            if self._data.pop(hash, None):
+                self._modified = True
 
     def _iter_(self):
-        delete = []
+        remove = []
 
         for hash, value in self._data.items():
             files = [v for v in map(pathlib.Path, value) if v.exists()]
 
-            delete.extend(((v, hash) for v in value.difference(map(str, files))))
+            if len(files):
+                remove.extend(((v, hash) for v in value.difference(map(str, files))))
 
-            yield hash, files
+                yield hash, files
+            else:
+                remove.extend(((v, hash) for v in value))
 
-        for v, hash in delete:
-            self.delete(v, hash)
+        for v, hash in remove:
+            self.remove(v, hash)
 
         self.store()
 
     def __iter__(self):
         for hash, value in self._iter_():
-            value = [str(v) for v in value if v.parent != self._trashDir]
-
-            if len(value):
-                yield hash, value
-
-    def trash(self):
-        for hash, value in self._iter_():
-            value = [str(v) for v in value if v.parent == self._trashDir]
-
-            if len(value):
-                yield hash, value
+            yield hash, map(str, value)
 
     def __getitem__(self, key):
-        return (v for v in self._data[key] if pathlib.Path(v).parent != self._trashDir)
+        return self._data[key]
 
     def renameFile(self, src, dest):
         src = pathlib.Path(src)
@@ -111,6 +113,8 @@ class ImageMap():
                 
                 s.remove(str(src))
                 s.add(str(dest))
+
+                self._modified = True
 
                 src.touch() # update last modification date
                 src.replace(dest)
@@ -137,14 +141,15 @@ class ImageMap():
 
         return dest
 
-    def moveFileToTrash(self, filename: str):
-        return self.moveFileTo(filename, self._trashDir)
+    def pop(self):
+        self._modified = True
+
+        return self._data.popitem()
 
 class IndexFrame(tkinter.Frame):
     def __init__(self, master, command = None):
         super().__init__(master)
 
-        self._init()
         self._command = command
 
         oframe = tkinter.Frame(self)
@@ -157,6 +162,7 @@ class IndexFrame(tkinter.Frame):
         tkinter.Label(frame, text = 'Directory:').grid(row = 0, column = 0, sticky = 'e')
         tkinter.Label(frame, text = 'File:').grid(row = 1, column = 0, sticky = 'e')
 
+        self._data = self.data()
         self._dirLabel = tkinter.Label(frame)
         self._dirLabel.grid(row = 0, column = 1, sticky = 'w')
         self._fileLabel = tkinter.Label(frame)
@@ -170,23 +176,18 @@ class IndexFrame(tkinter.Frame):
 
         tkinter.Button(frame, text = 'Skip', command = self.skip).pack(expand = True, fill = tkinter.X, side = tkinter.RIGHT)
 
-        if len(self._imageMap) == 0:
-            self.fullscan()
-            self._scanButton.config(state = tkinter.DISABLED)
-        else:
-            self.quickscan()
-
         frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
-    @classmethod
-    def _init(cls):
-        cls._init = lambda *args: None
-        cls._imageMap = ImageMap()
+        self.after_idle(self.quickscan)
+
+    @staticmethod
+    def data():
+        return ImageMap('index.pkl')
 
     def fullscan(self):
         self._scanButton.config(text = 'Quickscan', command = self.quickscan)
 
-        self._dirs = SettingFrame.getRootFolders([SettingFrame.sauceNaoDir, SettingFrame.selectDir, SettingFrame.trashDir, SettingFrame.destDir, *list(SettingFrame.indexDirs), *list(SettingFrame.selectDirs)])
+        self._dirs = SettingFrame.getRootFolders([SettingFrame.tempDir, SettingFrame.destDir, *iter(SettingFrame.indexDirs), *iter(SettingFrame.selectDirs)])
         self._ignore = set(SettingFrame.ignoreDirs)
         self._files = iter(())
 
@@ -215,7 +216,7 @@ class IndexFrame(tkinter.Frame):
 
         if not file:
             if len(self._dirs) == 0:
-                self._imageMap.store()
+                self._data.store()
 
                 return self.skip()
 
@@ -230,21 +231,10 @@ class IndexFrame(tkinter.Frame):
             if file.is_dir():
                 self._dirs.add(file)
             else:
-                if self._imageMap.add(file):
+                if self._data.add(file):
                     self._fileLabel['text'] = file.name
 
-        # self._after = self.after(500, self.process)
         self._after = self.after_idle(self.process)
-
-    class classproperty(classmethod):
-        def __get__(self, instance, owner = None):
-            owner._init()
-
-            return super().__get__(instance, owner)()
-
-    @classproperty
-    def imageMap(cls):
-        return cls._imageMap
 
 if __name__ == '__main__':
     root = tkinter.Tk()

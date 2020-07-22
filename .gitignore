@@ -1,9 +1,4 @@
-__pycache__/
-sauceNao/
-select/
-trash/
-story/
-dest/
-env/
-
+*/
 *.pkl
+
+!widgets/

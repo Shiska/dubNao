@@ -221,11 +221,11 @@ class MediaFrame(tkinter.Frame):
         return not self._delay
 
 if __name__ == '__main__':
-    from IndexFrame import ImageMap
+    from SelectFrame import SelectFrame
 
     root = tkinter.Tk()
-    
-    frame = MediaFrame(root, str(ImageMap()._data.popitem()[1].pop()))
+
+    frame = MediaFrame(root, next(next(iter(SelectFrame.data()))[1]))
     frame.pack()
 
     frame.label.bind('<Button-1>', frame.toggle)

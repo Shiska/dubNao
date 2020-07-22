@@ -71,14 +71,14 @@ class ScrollableFrame(tkinter.Frame):
         self.destroy = lambda: (destroy(), oframe.destroy())
 
 if __name__ == '__main__':
-    import MediaFrame
-    from IndexFrame import ImageMap
+    from MediaFrame import MediaFrame
+    from SelectFrame import SelectFrame
 
     root = tkinter.Tk()
 
     frame = ScrollableFrame(root)
     frame.pack(fill = tkinter.BOTH)
 
-    MediaFrame.MediaFrame(frame, next(iter(ImageMap()))[1][0], thumbSize = None).pack()
+    MediaFrame(frame, next(next(iter(SelectFrame.data()))[1]), thumbSize = None).pack()
     
     root.mainloop()

@@ -1,5 +1,6 @@
 import pathlib
 import tkinter
+import itertools
 import collections
 
 import PIL.ImageTk
@@ -7,12 +8,16 @@ import PIL.ImageChops
 
 if '.' in __name__:
     from .MediaFrame import MediaFrame
-    from .IndexFrame import IndexFrame
+    from .TrashFrame import TrashFrame
     from .SettingFrame import SettingFrame
+    from .SauceNaoFrame import SauceNaoFrame
+    from .IndexFrame import ImageMap, IndexFrame
 else:
     from MediaFrame import MediaFrame
-    from IndexFrame import IndexFrame
+    from TrashFrame import TrashFrame
     from SettingFrame import SettingFrame
+    from SauceNaoFrame import SauceNaoFrame
+    from IndexFrame import ImageMap, IndexFrame
 
 class SelectFrame(tkinter.Frame):
     thumbnailSize = 300
@@ -32,18 +37,22 @@ class SelectFrame(tkinter.Frame):
         self.command = command
 
         self._after = None
-        self._imageMap =  IndexFrame.imageMap
-        self._destDir = pathlib.Path(SettingFrame.destDir)
-        self._selectDir = pathlib.Path(SettingFrame.selectDir)
-        self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir)
+        self._data = self.data()
+        self._trashData = TrashFrame.data()
+        self._sauceNaoData = SauceNaoFrame.data()
+        self._tempDir = pathlib.Path(SettingFrame.tempDir).resolve()
+        self._destDir = pathlib.Path(SettingFrame.destDir).resolve()
 
         self.focus_set()
         self.after_idle(self._initMove)
 
-    def _initMove(self): # copied from indexFrame
-        selectDirs = set(map(pathlib.Path, SettingFrame.selectDirs))
+    @staticmethod
+    def data():
+        return ImageMap('select.pkl')
 
-        self._items = [(key, v) for key, value in self._imageMap for v in map(pathlib.Path, value) if any(p in selectDirs for p in v.parents)]
+    def _initMove(self): # copied from indexFrame
+        data = IndexFrame.data()
+        items = ((key, v) for key, value in data for v in value)
 
         oframe = tkinter.Frame(self)
         oframe.pack()
@@ -62,45 +71,42 @@ class SelectFrame(tkinter.Frame):
 
         frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
-        ignoreDirs = (self._sauceNaoDir, self._selectDir, pathlib.Path(SettingFrame.trashDir), self._destDir)
-
         def moveFiles():
-            if len(self._items):
-                (key, file) = self._items.pop()
+            keyLabel['text'], file = next(items, ('', None))
 
-                keyLabel['text'] = key
-                fileLabel['text'] = ''
+            if file:
+                fileLabel['text'] = file
 
-                parents = file.parents
+                pfile = pathlib.Path(file)
 
-                if all(p not in ignoreDirs for p in parents):
-                    with PIL.Image.open(file) as image:
-                        pass # just open and close it again, data stays in image object
+                if pfile.parent != self._tempDir:
+                    if self._destDir in pfile.parents:
+                        self._sauceNaoData.add(file)
+                    else:
+                        with PIL.Image.open(file) as image:
+                            pass # just open and close it again, data stays in image object
 
-                    if image.width > 200 or image.height > 200:
-                        fileLabel['text'] = str(file)
-
-                        self._imageMap.moveFileTo(file, self._selectDir)
-                    else: # delete small files
-                        self._imageMap.delete(file, key)
-
-                        file.unlink()
+                        if image.width > 200 or image.height > 200:
+                            self._data.add(data.moveFileTo(file, self._tempDir))
+                        else: # delete small files
+                            pfile.unlink()
 
                 self.after_idle(moveFiles)
             else:
+                data.clear()
+                data.store()
                 oframe.destroy()
 
-                self._imageMap.store()
-                self._initSelect()
+                self._data.store()
+                self._sauceNaoData.store()
+
+                self.after_idle(self._initSelect)
 
         self.after_idle(moveFiles)
 
     def _initSelect(self):
-        # todo check imageMap for deleted files
-        if SettingFrame.duplicates:
-            self._items = ((key, value) for key, value in self._imageMap if len(value) > 1 or self._selectDir in pathlib.Path(value[0]).parents)
-        else:
-            self._items = ((key, v) for key, value in self._imageMap for v in ({v for v in value if self._selectDir in pathlib.Path(v).parents}, ) if len(v))
+        self._duplicates = SettingFrame.duplicates
+        self._items = self._data
 
         oframe = tkinter.LabelFrame(self, text = 'Selection')
         oframe.pack()
@@ -169,6 +175,7 @@ class SelectFrame(tkinter.Frame):
         data['size'] = [f._image.size for f in frames]
         data['filesize'] = [f.stat().st_size for f in data['file']]
         data['difference'] = [f._difference for f in frames]
+        data['extern'] = [f._extern for f in frames]
 
         return data
 
@@ -186,7 +193,7 @@ class SelectFrame(tkinter.Frame):
                 victims = [victims[idx] for idx, size in enumerate(sizes) if size == maxsize]
 
                 if len(victims) > 1:
-                    newvictims = [idx for idx in victims if data['file'][idx].parent != self._selectDir]
+                    newvictims = [idx for idx in victims if data['extern'][idx]]
 
                     if len(newvictims):
                         victims = newvictims
@@ -333,10 +340,14 @@ class SelectFrame(tkinter.Frame):
         for _, mediaFrame in self.iterImages():
             mediaFrame.release()
 
-            self._imageMap.moveFileToTrash(mediaFrame._file)
+            file = str(mediaFrame._file)
 
-        self._imageMap.store()
-        self.skip()
+            self._trashData.add(file)
+
+            if mediaFrame._extern:
+                self._sauceNaoData.remove(file)
+
+        self.after_idle(self.skip)
 
     def uncheck(self, event = None):
         for _, mediaFrame in self.iterImages():
@@ -348,49 +359,104 @@ class SelectFrame(tkinter.Frame):
         else:
             for _, mediaFrame in self.iterImages():
                 mediaFrame.release()
-                file = mediaFrame._file
+                file = str(mediaFrame._file)
 
                 if mediaFrame._var.get():
-                    if str(file) in self._files: # move only files from the original items
-                        self._imageMap.moveFileTo(file, self._sauceNaoDir)
+                    if not mediaFrame._extern: # move only files from the original items
+                        self._sauceNaoData.add(file)
                 else:
-                    self._imageMap.moveFileToTrash(file)
+                    self._trashData.add(file)
 
-            self._imageMap.store()
-            self.skip()
+                    if mediaFrame._extern:
+                        self._sauceNaoData.remove(file)
+
+            self.after_idle(self.skip)
+
+    def _openFile(self, frame):
+        def event(e):
+            frame.osOpen()
+
+        return event
+
+    def _createFrame(self, frame, file, extern = False):
+        lframe = tkinter.LabelFrame(frame)
+        lframe.columnconfigure(0, minsize = self.thumbnailSize + 10)
+        lframe.rowconfigure(0, minsize = self.thumbnailSize + 10)
+        lframe.grid()
+
+        mframe = MediaFrame(lframe, file, (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
+        mframe._var = tkinter.BooleanVar()
+        mframe._file = pathlib.Path(file)
+        mframe._extern = extern
+        mframe.grid()
+
+        mframe.bind('<Button-1>', self._openFile(mframe))
+        mframe.bind('<Enter>', self._onEnterImage(mframe))
+
+        if mframe.isVideo:
+            mframe.bind('<Button-3>', self._popup(mframe))
+
+            return 1
+        return 0
+
+    def _sortFrames(self, frame):
+        data = self.getFileData()
+        ranking = self.groupData(data)
+        selected = self._preselectCheckbox(data)
+
+        wrap = self.thumbnailSize * 3 // 4
+        length = len(data['frame'])
+        step = 128 // length
+        # sort columns by size
+        columns = {item[0]: idx for idx, item in enumerate(sorted(ranking['size'].items(), key = lambda i: i[1]))}
+
+        for idx, mediaFrame in enumerate(data['frame']):
+            column = columns[idx]
+
+            file = mediaFrame._file
+            var = mediaFrame._var
+
+            var.set(selected == None or selected == idx)
+
+            rank = ranking['name'][idx]
+            tkinter.Checkbutton(frame, text = '{} ({})'.format(file.name, rank), variable = var, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 0, column = column)
+
+            hframe = tkinter.Frame(frame)
+            hframe.grid(row = 1, column = column)
+
+            tkinter.Label(hframe, text = 'Directory:').grid(row = 1, column = 0, sticky = 'e')
+            tkinter.Label(hframe, text = 'Size:').grid(row = 2, column = 0, sticky = 'e')
+            tkinter.Label(hframe, text = 'Filesize:').grid(row = 3, column = 0, sticky = 'e')
+
+            rank = ranking['dir'][idx]
+            tkinter.Label(hframe, text = '{} ({})'.format(file.parent, rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 1, column = 1, sticky = 'w')
+            rank = ranking['size'][idx]
+            tkinter.Label(hframe, text = '{} x {} ({})'.format(*data['size'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 2, column = 1, sticky = 'w')
+            rank = ranking['filesize'][idx]
+            tkinter.Label(hframe, text = '{} ({})'.format(data['filesize'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 3, column = 1, sticky = 'w')
+
+            mediaFrame.master.grid(row = 2, column = column)
+
+        self._onEnterImage(data['frame'][[idx for idx, column in columns.items() if column == 0][0]])(None)
 
     def skip(self, event = None):
-        (key, self._files) = next(self._items, (None, None))
+        self._data.store()
+        self._trashData.store()
+        self._sauceNaoData.store()
+        
+        if len(self._items):
+            (key, files) = self._items.pop()
 
-        if key:
-            isThereAnyVideo = False
+            print(key, files, flush = True)
+
+            isThereAnyVideo = 0
             frame = self._newFrame(key)
-            wrap = self.thumbnailSize * 3 // 4
 
-            for idx, file in enumerate(map(pathlib.Path, self._imageMap[key])):
-                lframe = tkinter.LabelFrame(frame)
-                lframe.columnconfigure(0, minsize = self.thumbnailSize + 10)
-                lframe.rowconfigure(0, minsize = self.thumbnailSize + 10)
-                lframe.grid()
+            for file in files:
+                isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, False)
 
-                mframe = MediaFrame(lframe, str(file), (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
-                mframe._var = tkinter.BooleanVar()
-                mframe._file = file
-                mframe.grid()
-
-                def openFile(frame):
-                    def event(e):
-                        frame.osOpen()
-
-                    return event
-
-                mframe.bind('<Button-1>', openFile(mframe))
-                mframe.bind('<Enter>', self._onEnterImage(mframe))
-
-                if mframe.isVideo:
-                    mframe.bind('<Button-3>', self._popup(mframe))
-
-                    isThereAnyVideo = True
+            for file in self._sauceNaoData[key]:
+                isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, True)
 
             self._videosPlaying = True
 
@@ -402,47 +468,14 @@ class SelectFrame(tkinter.Frame):
             self.difference()
             self.difference()
 
-            data = self.getFileData()
-            ranking = self.groupData(data)
-            selected = self._preselectCheckbox(data)
-
-            rows = collections.defaultdict(int)
-            length = len(data['frame'])
-            step = 128 // length
-            # sort columns by size
-            columns = {item[0]: idx for idx, item in enumerate(sorted(ranking['size'].items(), key = lambda i: i[1]))}
-
-            for idx, mediaFrame in enumerate(data['frame']):
-                column = columns[idx]
-
-                file = mediaFrame._file
-                var = mediaFrame._var
-
-                var.set(selected == None or selected == idx)
-
-                rank = ranking['name'][idx]
-                tkinter.Checkbutton(frame, text = '{} ({})'.format(file.name, rank), variable = var, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 0, column = column)
-
-                hframe = tkinter.Frame(frame)
-                hframe.grid(row = 1, column = column)
-
-                tkinter.Label(hframe, text = 'Directory:').grid(row = 1, column = 0, sticky = 'e')
-                tkinter.Label(hframe, text = 'Size:').grid(row = 2, column = 0, sticky = 'e')
-                tkinter.Label(hframe, text = 'Filesize:').grid(row = 3, column = 0, sticky = 'e')
-
-                rank = ranking['dir'][idx]
-                tkinter.Label(hframe, text = '{} ({})'.format(file.parent, rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 1, column = 1, sticky = 'w')
-                rank = ranking['size'][idx]
-                tkinter.Label(hframe, text = '{} x {} ({})'.format(*data['size'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 2, column = 1, sticky = 'w')
-                rank = ranking['filesize'][idx]
-                tkinter.Label(hframe, text = '{} ({})'.format(data['filesize'][idx], rank), wraplength = wrap, fg = '#{:02X}{:02X}00'.format(rank * step, 128 - rank * step)).grid(row = 3, column = 1, sticky = 'w')
-
-                mediaFrame.master.grid(row = 2, column = column)
-
-            self._onEnterImage(data['frame'][[idx for idx, column in columns.items() if column == 0][0]])(None)
+            self._sortFrames(frame)
 
             frame.pack(fill = tkinter.BOTH)
         else:
+            if self._duplicates:
+                self._duplicates = None
+                self._items = [(key, v) for key, value in self._sauceNaoData for v in (list(value), ) if len(v) > 1]
+
             if self.command:
                 self.command()
 

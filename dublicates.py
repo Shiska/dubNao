@@ -1,3 +1,4 @@
+import gc
 import widgets
 import tkinter
 
@@ -42,12 +43,8 @@ class Application(tkinter.Tk):
             self._settings.pack(fill = tkinter.BOTH)
 
     def _checkSettings(self):
-        if not self._settings.sauceNaoDir:
-            tkinter.messagebox.showwarning('Warning', 'SauceNao directory not set!')
-        elif not self._settings.selectDir:
-            tkinter.messagebox.showwarning('Warning', 'Select directory not set!')
-        elif not self._settings.trashDir:
-            tkinter.messagebox.showwarning('Warning', 'Trash directory not set!')
+        if not self._settings.tempDir:
+            tkinter.messagebox.showwarning('Warning', 'Temp directory not set!')
         elif not self._settings.destDir:
             tkinter.messagebox.showwarning('Warning', 'Dest directory not set!')
         else:
@@ -83,8 +80,6 @@ class Application(tkinter.Tk):
 
         if self._settingsShown:
             self._frame.pack_forget()
-
-        return self._frame
 
     def _sauceNao(self, command = None):
         self._setFrame(widgets.SauceNaoFrame, command = command if command else self._index)

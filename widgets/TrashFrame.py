@@ -1,14 +1,13 @@
+import pickle
 import pathlib
 import tkinter
 
 if '.' in __name__:
     from .MediaFrame import MediaFrame
-    from .IndexFrame import IndexFrame
-    from .SettingFrame import SettingFrame
+    from .SauceNaoFrame import SauceNaoFrame
 else:
     from MediaFrame import MediaFrame
-    from IndexFrame import IndexFrame
-    from SettingFrame import SettingFrame
+    from SauceNaoFrame import SauceNaoFrame
 
 class TrashFrame(tkinter.Frame):
     def __init__(self, master, command = None):
@@ -16,11 +15,8 @@ class TrashFrame(tkinter.Frame):
 
         self.command = command
 
-        imageMap = IndexFrame.imageMap
-
-        self._items = sorted((v for _, value in imageMap.trash() for v in map(pathlib.Path, value)), key = lambda v: v.stat().st_mtime, reverse = True)
-        self._sauceNaoDir = pathlib.Path(SettingFrame.sauceNaoDir).resolve()
-        self._imageMap = imageMap
+        self._data = self.data()
+        self._sauceNaoData = SauceNaoFrame.data()
         self.focus_set()
 
         self.bind('<Left>',     self.previous)
@@ -61,6 +57,35 @@ class TrashFrame(tkinter.Frame):
 
         self._showIndex()
 
+    class data():
+        def __init__(self, filename: str = 'trash.pkl'):
+            self._filename = filename
+
+            if pathlib.Path(filename).is_file():
+                with open(filename, 'rb') as file:
+                    self._data = pickle.load(file)
+            else:
+                self._data = dict()
+
+        def store(self):
+            with open(self._filename, 'wb') as file:
+                pickle.dump(self._data, file)
+
+        def __len__(self):
+            return len(self._data)
+
+        def __getitem__(self, key):
+            return list(self._data)[key]
+
+        def add(self, filename: str):
+            self._data[filename] = None
+
+        def remove(self, filename: str):
+            del self._data[filename]
+
+        def pop(self):
+            return self._data.popitem()
+
     def _empty(self):
         if self.command:
             self.command()
@@ -72,24 +97,26 @@ class TrashFrame(tkinter.Frame):
             tkinter.Label(oframe, text = 'Empty').pack()
 
     def _showIndex(self, index = 0):
-        length = len(self._items)
+        length = len(self._data)
 
         if length == 0:
             self._empty()
         else:
             self._index = index
-            file = self._items[index]
+
             index = index + 1
+            file = pathlib.Path(self._data[-index])
 
-            self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
-            self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
-            self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
-            self._mediaFrame.open(str(file))
+            if file.exists():
+                self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
+                self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
+                self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
+                self._mediaFrame.open(str(file))
 
-            self._sizeLabel['text'] = '{} x {}'.format(*self._mediaFrame._image.size)
-            self._fileSizeLabel['text'] = file.stat().st_size
+                self._sizeLabel['text'] = '{} x {}'.format(*self._mediaFrame._image.size)
+                self._fileSizeLabel['text'] = file.stat().st_size
 
-        self.update_idletasks()
+                self.update_idletasks()
 
     def previous(self, event = None):
         if self._index != 0:
@@ -98,29 +125,30 @@ class TrashFrame(tkinter.Frame):
     def next(self, event = None):
         index = self._index + 1
 
-        if index != len(self._items):
+        if index != len(self._data):
             self._showIndex(index)
 
     def _popCurrentItem(self):
         index = self._index
-        file = self._items.pop(index)
-        length = len(self._items)
+        file = self._mediaFrame._filename
 
-        if length == index:
+        self._data.remove(file)
+
+        if len(self._data) == index:
             self._showIndex(index - 1)
         else:
             self._showIndex(index)
 
+        self._data.store()
+
         return file
 
     def restore(self, event = None):
-        self._imageMap.moveFileTo(self._popCurrentItem(), self._sauceNaoDir)
+        self._sauceNaoData.add(self._popCurrentItem())
+        self._sauceNaoData.store()
 
     def delete(self, event = None):
-        file = self._popCurrentItem()
-
-        self._imageMap.delete(file)
-        file.unlink()
+        pathlib.Path(self._popCurrentItem()).unlink()
 
     def clear(self, event = None):
         for oframe in self.pack_slaves():
@@ -139,17 +167,16 @@ class TrashFrame(tkinter.Frame):
         fileLabel.bind('<Configure>', lambda event: frame.grid_columnconfigure(1, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
         def step():
-            if len(self._items):
-                file = self._items.pop()
+            if len(self._data):
+                file = pathlib.Path(self._data.pop()[0])
 
                 fileLabel['text'] = file.name
-
-                self._imageMap.delete(file)
 
                 file.unlink()
 
                 self.after_idle(step)
             else:
+                self._data.store()
                 self._empty()
 
         step()
