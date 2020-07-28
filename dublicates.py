@@ -1,5 +1,4 @@
 import gc
-# import widgets
 import tkinter
 
 import widgets.Index
@@ -89,7 +88,7 @@ class Application(tkinter.Tk):
             self._frame.pack_forget()
 
     def _sauceNao(self):
-        self._setFrame(widgets.SauceNao.Frame, browse = True)
+        self._setFrame(widgets.SauceNao.Frame, browse = self._index)
 
     def _index(self):
         self._setFrame(widgets.Index.Frame, command = self._select)

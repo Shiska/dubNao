@@ -24,10 +24,11 @@ def Data():
     return Index.ImageMap('sauceNao.pkl')
 
 class Frame(tkinter.Frame):
-    def __init__(self, master, command = None, browse = False):
+    def __init__(self, master, command = None, browse = None):
         super().__init__(master)
 
         self.command = command or self._browse
+        self.browse = browse
 
         self._snao = pysaucenao.SauceNao()
         self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
@@ -177,17 +178,22 @@ class Frame(tkinter.Frame):
         self._index = index
         self._messageLabel.pack_forget()
 
-        file = self._items[index]
         length = len(self._items)
-        index = index + 1
 
-        self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
-        self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
+        if index < length:
+            file = self._items[index]
+            index = index + 1
 
-        self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
-        self._mediaFrame.open(str(file))
+            self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
+            self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
 
-        self.update_idletasks()
+            self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
+            self._mediaFrame.open(str(file))
+
+            self.update_idletasks()
+        else:
+            if self.browse:
+                self.browse()
 
     def _next(self, event = None):
         if self._nextButton['state'] != tkinter.DISABLED:
@@ -266,6 +272,6 @@ if __name__ == '__main__':
     root.wait_visibility()
     root.state('zoomed')
 
-    Frame(root, command = lambda: root.after_idle(root.destroy), browse = True).pack(fill = tkinter.BOTH)
+    Frame(root, browse = lambda: root.after_idle(root.destroy)).pack(fill = tkinter.BOTH)
 
     root.mainloop()
