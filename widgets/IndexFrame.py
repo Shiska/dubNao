@@ -1,3 +1,4 @@
+import sys
 import pickle
 import imghdr
 import pathlib
@@ -6,10 +7,11 @@ import imagehash
 import PIL.Image
 import collections
 
-if '.' in __name__:
-    from .SettingFrame import SettingFrame
-else:
-    from SettingFrame import SettingFrame
+sys.path.append(str(pathlib.Path(__file__).parent))
+
+import Setting
+
+sys.path.pop()
 
 class ImageMap():
     def __init__(self, filename: str = 'imageshashes.pkl'):
@@ -146,7 +148,10 @@ class ImageMap():
 
         return self._data.popitem()
 
-class IndexFrame(tkinter.Frame):
+def Data():
+    return ImageMap('index.pkl')
+
+class Frame(tkinter.Frame):
     def __init__(self, master, command = None):
         super().__init__(master)
 
@@ -162,7 +167,7 @@ class IndexFrame(tkinter.Frame):
         tkinter.Label(frame, text = 'Directory:').grid(row = 0, column = 0, sticky = 'e')
         tkinter.Label(frame, text = 'File:').grid(row = 1, column = 0, sticky = 'e')
 
-        self._data = self.data()
+        self._data = Data()
         self._dirLabel = tkinter.Label(frame)
         self._dirLabel.grid(row = 0, column = 1, sticky = 'w')
         self._fileLabel = tkinter.Label(frame)
@@ -180,15 +185,11 @@ class IndexFrame(tkinter.Frame):
 
         self.after_idle(self.quickscan)
 
-    @staticmethod
-    def data():
-        return ImageMap('index.pkl')
-
     def fullscan(self):
         self._scanButton.config(text = 'Quickscan', command = self.quickscan)
 
-        self._dirs = SettingFrame.getRootFolders([SettingFrame.tempDir, SettingFrame.destDir, *iter(SettingFrame.indexDirs), *iter(SettingFrame.selectDirs)])
-        self._ignore = set(SettingFrame.ignoreDirs)
+        self._dirs = Setting.Data.getRootFolders([Setting.Data.tempDir, Setting.Data.destDir, *iter(Setting.Data.indexDirs), *iter(Setting.Data.selectDirs)])
+        self._ignore = set(Setting.Data.ignoreDirs)
         self._files = iter(())
 
         self._after = self.after_idle(self.process)
@@ -196,8 +197,8 @@ class IndexFrame(tkinter.Frame):
     def quickscan(self):
         self._scanButton.config(text = 'Fullscan', command = self.fullscan)
 
-        self._dirs = set(SettingFrame.indexDirs)
-        self._ignore = set(SettingFrame.ignoreDirs)
+        self._dirs = set(Setting.Data.indexDirs)
+        self._ignore = set(Setting.Data.ignoreDirs)
         self._files = iter(())
 
         self._after = self.after_idle(self.process)
@@ -240,6 +241,6 @@ if __name__ == '__main__':
     root = tkinter.Tk()
     root.wait_visibility() # necessary otherwise the gui won't show up at all
 
-    IndexFrame(root, command = lambda: root.destroy()).pack(fill = tkinter.BOTH)
+    Frame(root, command = lambda: root.destroy()).pack(fill = tkinter.BOTH)
     
     root.mainloop()

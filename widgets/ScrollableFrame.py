@@ -22,7 +22,7 @@ class AutoScrollbar(tkinter.Scrollbar):
     def place(self, **kw):
         raise tkinter.TclError('cannot use place with this widget')
 
-class ScrollableFrame(tkinter.Frame):
+class Frame(tkinter.Frame):
     def __init__(self, master): # hierarchy: master -> oframe -> vscrollbar, hscrollbar, canvas -> iframe -> self
         oframe = tkinter.Frame(master)
         oframe.grid_rowconfigure(0, weight = 1)
@@ -71,14 +71,14 @@ class ScrollableFrame(tkinter.Frame):
         self.destroy = lambda: (destroy(), oframe.destroy())
 
 if __name__ == '__main__':
-    from MediaFrame import MediaFrame
-    from SelectFrame import SelectFrame
+    import Media
+    import Select
 
     root = tkinter.Tk()
 
-    frame = ScrollableFrame(root)
+    frame = Frame(root)
     frame.pack(fill = tkinter.BOTH)
 
-    MediaFrame(frame, next(next(iter(SelectFrame.data()))[1]), thumbSize = None).pack()
+    Media.Frame(frame, next(next(iter(Select.Data()))[1]), thumbSize = None).pack()
     
     root.mainloop()

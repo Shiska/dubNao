@@ -21,7 +21,7 @@ def fdebug(func):
     # return wrapper
     return func
 
-class MediaFrame(tkinter.Frame):
+class Frame(tkinter.Frame):
     @fdebug
     def __init__(self, master, filename: str = None, thumbSize: tuple = (300, 300), autoplay: bool = True, loop: bool = True, onFrameChange = None):
         super().__init__(master)
@@ -131,7 +131,8 @@ class MediaFrame(tkinter.Frame):
     @staticmethod
     def thumbnailScreensize(frame, image):
         image = image.copy()
-        image.thumbnail((min(image.width, frame.winfo_screenwidth() * 95 // 100), min(image.height, frame.winfo_screenheight() * 85 // 100)))
+
+        image.thumbnail((min(image.width, frame.winfo_screenwidth() * 95 // 100), min(image.height, frame.winfo_screenheight() * 75 // 100)))
 
         return image
 
@@ -221,11 +222,11 @@ class MediaFrame(tkinter.Frame):
         return not self._delay
 
 if __name__ == '__main__':
-    from SelectFrame import SelectFrame
+    import Select
 
     root = tkinter.Tk()
 
-    frame = MediaFrame(root, next(next(iter(SelectFrame.data()))[1]))
+    frame = Frame(root, next(next(iter(Select.Data()))[1]))
     frame.pack()
 
     frame.label.bind('<Button-1>', frame.toggle)

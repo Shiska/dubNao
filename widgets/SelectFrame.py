@@ -1,3 +1,4 @@
+import sys
 import pathlib
 import tkinter
 import itertools
@@ -6,20 +7,20 @@ import collections
 import PIL.ImageTk
 import PIL.ImageChops
 
-if '.' in __name__:
-    from .MediaFrame import MediaFrame
-    from .TrashFrame import TrashFrame
-    from .SettingFrame import SettingFrame
-    from .SauceNaoFrame import SauceNaoFrame
-    from .IndexFrame import ImageMap, IndexFrame
-else:
-    from MediaFrame import MediaFrame
-    from TrashFrame import TrashFrame
-    from SettingFrame import SettingFrame
-    from SauceNaoFrame import SauceNaoFrame
-    from IndexFrame import ImageMap, IndexFrame
+sys.path.append(str(pathlib.Path(__file__).parent))
 
-class SelectFrame(tkinter.Frame):
+import Index
+import Media
+import Trash
+import Setting
+import SauceNao
+
+sys.path.pop()
+
+def Data():
+    return Index.ImageMap('select.pkl')
+
+class Frame(tkinter.Frame):
     thumbnailSize = 300
     maxImagesPerRow = 6
 
@@ -37,21 +38,17 @@ class SelectFrame(tkinter.Frame):
         self.command = command
 
         self._after = None
-        self._data = self.data()
-        self._trashData = TrashFrame.data()
-        self._sauceNaoData = SauceNaoFrame.data()
-        self._tempDir = pathlib.Path(SettingFrame.tempDir).resolve()
-        self._destDir = pathlib.Path(SettingFrame.destDir).resolve()
+        self._data = Data()
+        self._trashData = Trash.Data()
+        self._sauceNaoData = SauceNao.Data()
+        self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
+        self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
 
         self.focus_set()
         self.after_idle(self._initMove)
 
-    @staticmethod
-    def data():
-        return ImageMap('select.pkl')
-
-    def _initMove(self): # copied from indexFrame
-        data = IndexFrame.data()
+    def _initMove(self):
+        data = Index.Data()
         items = ((key, v) for key, value in data for v in value)
 
         oframe = tkinter.Frame(self)
@@ -105,7 +102,7 @@ class SelectFrame(tkinter.Frame):
         self.after_idle(moveFiles)
 
     def _initSelect(self):
-        self._duplicates = SettingFrame.duplicates
+        self._duplicates = Setting.Data.duplicates
         self._items = self._data
 
         oframe = tkinter.LabelFrame(self, text = 'Selection')
@@ -199,7 +196,7 @@ class SelectFrame(tkinter.Frame):
                         victims = newvictims
 
                         if maxdiff == 0:
-                            self._autoselect(SettingFrame.autoselect)
+                            self._autoselect(Setting.Data.autoselect)
 
             selectIdx = victims[0]
 
@@ -278,10 +275,7 @@ class SelectFrame(tkinter.Frame):
 
                 self._inFrame = frame
 
-                image = frame._image.copy()
-                image.thumbnail((image.width, self.winfo_screenheight() * 3 // 4))
-
-                frame._setPhoto(image)
+                frame._setPhoto(Media.Frame.thumbnailScreensize(self, frame._image))
 
         return enter
 
@@ -305,7 +299,7 @@ class SelectFrame(tkinter.Frame):
                 mframe['image'] = mframe.diff = PIL.ImageTk.PhotoImage(diffImage)
                 mframe.master['text'] = 'Difference: ' + str(difference)
         elif self._inFrame == mframe:
-            return MediaFrame.thumbnailScreensize(self, self._inFrame._image)
+            return Media.Frame.thumbnailScreensize(self, self._inFrame._image)
 
     def _popup(self, mframe):
         def popup(event):
@@ -384,7 +378,7 @@ class SelectFrame(tkinter.Frame):
         lframe.rowconfigure(0, minsize = self.thumbnailSize + 10)
         lframe.grid()
 
-        mframe = MediaFrame(lframe, file, (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
+        mframe = Media.Frame(lframe, file, (self.thumbnailSize, self.thumbnailSize), onFrameChange = self._onFrameChange)
         mframe._var = tkinter.BooleanVar()
         mframe._file = pathlib.Path(file)
         mframe._extern = extern
@@ -437,7 +431,7 @@ class SelectFrame(tkinter.Frame):
 
             mediaFrame.master.grid(row = 2, column = column)
 
-        self._onEnterImage(data['frame'][[idx for idx, column in columns.items() if column == 0][0]])(None)
+        self._onEnterImage(data['frame'][0])(None)
 
     def skip(self, event = None):
         self._data.store()
@@ -446,8 +440,6 @@ class SelectFrame(tkinter.Frame):
         
         if len(self._items):
             (key, files) = self._items.pop()
-
-            print(key, files, flush = True)
 
             isThereAnyVideo = 0
             frame = self._newFrame(key)
@@ -480,15 +472,15 @@ class SelectFrame(tkinter.Frame):
                 self.command()
 
 if __name__ == '__main__':
-    from ScrollableFrame import ScrollableFrame
+    import Scrollable
 
     root = tkinter.Tk()
     root.state('zoomed')
     root.wait_visibility()
 
-    frame = ScrollableFrame(root)
+    frame = Scrollable.Frame(root)
     frame.pack(expand = True, fill = tkinter.BOTH)
 
-    SelectFrame(frame, command = lambda: root.after_idle(root.destroy)).pack(expand = True, fill = tkinter.BOTH)
+    Frame(frame, command = lambda: root.after_idle(root.destroy)).pack(expand = True, fill = tkinter.BOTH)
 
     root.mainloop()

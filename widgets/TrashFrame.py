@@ -1,22 +1,55 @@
+import sys
 import pickle
 import pathlib
 import tkinter
 
-if '.' in __name__:
-    from .MediaFrame import MediaFrame
-    from .SauceNaoFrame import SauceNaoFrame
-else:
-    from MediaFrame import MediaFrame
-    from SauceNaoFrame import SauceNaoFrame
+sys.path.append(str(pathlib.Path(__file__).parent))
 
-class TrashFrame(tkinter.Frame):
+import Media
+import SauceNao
+
+sys.path.pop()
+
+class Data():
+    def __init__(self, filename: str = 'trash.pkl'):
+        self._filename = filename
+
+        if pathlib.Path(filename).is_file():
+            with open(filename, 'rb') as file:
+                self._data = pickle.load(file)
+        else:
+            self._data = list()
+
+    def store(self):
+        with open(self._filename, 'wb') as file:
+            pickle.dump(self._data, file)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def add(self, filename: str):
+        filename = str(filename)
+
+        if filename not in self._data:
+            self._data.append(filename)
+
+    def remove(self, filename: str):
+        return self._data.remove(str(filename))
+
+    def pop(self):
+        return self._data.pop()
+
+class Frame(tkinter.Frame):
     def __init__(self, master, command = None):
         super().__init__(master)
 
         self.command = command
 
-        self._data = self.data()
-        self._sauceNaoData = SauceNaoFrame.data()
+        self._data = Data()
+        self._sauceNaoData = SauceNao.Data()
         self.focus_set()
 
         self.bind('<Left>',     self.previous)
@@ -51,40 +84,11 @@ class TrashFrame(tkinter.Frame):
         self._fileSizeLabel = tkinter.Label(frame)
         self._fileSizeLabel.grid(row = 1, column = 1, sticky = 'w')
 
-        mediaFrame = self._mediaFrame = MediaFrame(frame, onFrameChange = lambda mframe, thumbnail: MediaFrame.thumbnailScreensize(self, mframe._image))
+        mediaFrame = self._mediaFrame = Media.Frame(frame, onFrameChange = lambda mframe, thumbnail: Media.Frame.thumbnailScreensize(self, mframe._image))
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
         self._showIndex()
-
-    class data():
-        def __init__(self, filename: str = 'trash.pkl'):
-            self._filename = filename
-
-            if pathlib.Path(filename).is_file():
-                with open(filename, 'rb') as file:
-                    self._data = pickle.load(file)
-            else:
-                self._data = dict()
-
-        def store(self):
-            with open(self._filename, 'wb') as file:
-                pickle.dump(self._data, file)
-
-        def __len__(self):
-            return len(self._data)
-
-        def __getitem__(self, key):
-            return list(self._data)[key]
-
-        def add(self, filename: str):
-            self._data[filename] = None
-
-        def remove(self, filename: str):
-            del self._data[filename]
-
-        def pop(self):
-            return self._data.popitem()
 
     def _empty(self):
         if self.command:
@@ -123,10 +127,8 @@ class TrashFrame(tkinter.Frame):
             self._showIndex(self._index - 1)
 
     def next(self, event = None):
-        index = self._index + 1
-
-        if index != len(self._data):
-            self._showIndex(index)
+        if self._nextButton['state'] != tkinter.DISABLED:
+            self._showIndex(self._index + 1)
 
     def _popCurrentItem(self):
         index = self._index
@@ -168,7 +170,7 @@ class TrashFrame(tkinter.Frame):
 
         def step():
             if len(self._data):
-                file = pathlib.Path(self._data.pop()[0])
+                file = pathlib.Path(self._data.pop())
 
                 fileLabel['text'] = file.name
 
@@ -185,6 +187,6 @@ if __name__ == '__main__':
     root = tkinter.Tk()
     root.wait_visibility()
 
-    TrashFrame(root).pack(fill = tkinter.BOTH)
+    Frame(root).pack(fill = tkinter.BOTH)
 
     root.mainloop()
