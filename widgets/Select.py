@@ -9,6 +9,7 @@ import PIL.ImageChops
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 
+import Data
 import Index
 import Media
 import Trash
@@ -17,8 +18,7 @@ import SauceNao
 
 sys.path.pop()
 
-def Data():
-    return Index.ImageMap('select.pkl')
+Data = Data.ImageMap(Data.Data('select'))
 
 class Frame(tkinter.Frame):
     thumbnailSize = 300
@@ -38,9 +38,6 @@ class Frame(tkinter.Frame):
         self.command = command
 
         self._after = None
-        self._data = Data()
-        self._trashData = Trash.Data()
-        self._sauceNaoData = SauceNao.Data()
         self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
         self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
 
@@ -48,7 +45,7 @@ class Frame(tkinter.Frame):
         self.after_idle(self._initMove)
 
     def _initMove(self):
-        data = Index.Data()
+        data = Index.Data
         items = ((key, v) for key, value in data for v in value)
 
         oframe = tkinter.Frame(self)
@@ -78,13 +75,16 @@ class Frame(tkinter.Frame):
 
                 if pfile.parent != self._tempDir:
                     if self._destDir in pfile.parents:
-                        self._sauceNaoData.add(file)
+                        SauceNao.Data.add(file)
                     else:
                         with PIL.Image.open(file) as image:
                             pass # just open and close it again, data stays in image object
 
                         if image.width > 200 or image.height > 200:
-                            self._data.add(data.moveFileTo(file, self._tempDir))
+                            if self._tempDir not in pfile.parents:
+                                file = data.moveFileTo(file, self._tempDir)
+
+                            Data.add(file)
                         else: # delete small files
                             pfile.unlink()
 
@@ -94,8 +94,8 @@ class Frame(tkinter.Frame):
                 data.store()
                 oframe.destroy()
 
-                self._data.store()
-                self._sauceNaoData.store()
+                Data.store()
+                SauceNao.Data.store()
 
                 self.after_idle(self._initSelect)
 
@@ -103,7 +103,7 @@ class Frame(tkinter.Frame):
 
     def _initSelect(self):
         self._duplicates = Setting.Data.duplicates
-        self._items = self._data
+        self._items = Data._dict
 
         oframe = tkinter.LabelFrame(self, text = 'Selection')
         oframe.pack()
@@ -331,15 +331,19 @@ class Frame(tkinter.Frame):
             self.after_idle(mediaFrame.reset)
 
     def delete(self, event = None):
-        for _, mediaFrame in self.iterImages():
-            mediaFrame.release()
+        self._items.popitem()
 
-            file = str(mediaFrame._file)
+        with Trash.Data as trashData:
+            with SauceNao.Data as sauceNaoData:
+                for _, mediaFrame in self.iterImages():
+                    mediaFrame.release()
 
-            self._trashData.add(file)
+                    file = str(mediaFrame._file)
 
-            if mediaFrame._extern:
-                self._sauceNaoData.remove(file)
+                    trashData.add(file)
+
+                    if mediaFrame._extern:
+                        sauceNaoData.remove(file)
 
         self.after_idle(self.skip)
 
@@ -351,18 +355,22 @@ class Frame(tkinter.Frame):
         if self._after:
             self._stopAutoselect()
         else:
-            for _, mediaFrame in self.iterImages():
-                mediaFrame.release()
-                file = str(mediaFrame._file)
+            self._items.popitem()
 
-                if mediaFrame._var.get():
-                    if not mediaFrame._extern: # move only files from the original items
-                        self._sauceNaoData.add(file)
-                else:
-                    self._trashData.add(file)
+            with Trash.Data as trashData:
+                with SauceNao.Data as sauceNaoData:
+                    for _, mediaFrame in self.iterImages():
+                        mediaFrame.release()
+                        file = str(mediaFrame._file)
 
-                    if mediaFrame._extern:
-                        self._sauceNaoData.remove(file)
+                        if mediaFrame._var.get():
+                            if not mediaFrame._extern: # move only files from the original items
+                                sauceNaoData.add(file)
+                        else:
+                            trashData.add(file)
+
+                            if mediaFrame._extern:
+                                sauceNaoData.remove(file)
 
             self.after_idle(self.skip)
 
@@ -434,12 +442,10 @@ class Frame(tkinter.Frame):
         self._onEnterImage(data['frame'][0])(None)
 
     def skip(self, event = None):
-        self._data.store()
-        self._trashData.store()
-        self._sauceNaoData.store()
-        
+        Data.store()
+
         if len(self._items):
-            (key, files) = self._items.pop()
+            (key, files) = next(reversed(self._items.items()))
 
             isThereAnyVideo = 0
             frame = self._newFrame(key)
@@ -447,7 +453,7 @@ class Frame(tkinter.Frame):
             for file in files:
                 isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, False)
 
-            for file in self._sauceNaoData[key]:
+            for file in SauceNao.Data[key]:
                 isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, True)
 
             self._videosPlaying = True
@@ -466,7 +472,7 @@ class Frame(tkinter.Frame):
         else:
             if self._duplicates:
                 self._duplicates = None
-                self._items = [(key, v) for key, value in self._sauceNaoData for v in (list(value), ) if len(v) > 1]
+                self._items = {key: [] for key, value in SauceNao.Data if len(value) > 1}
 
             if self.command:
                 self.command()

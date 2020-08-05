@@ -5,42 +5,45 @@ import tkinter
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 
+import Data
 import Media
 import SauceNao
 
 sys.path.pop()
 
-class Data():
-    def __init__(self, filename: str = 'trash.pkl'):
-        self._filename = filename
-
-        if pathlib.Path(filename).is_file():
-            with open(filename, 'rb') as file:
-                self._data = pickle.load(file)
-        else:
-            self._data = list()
-
-    def store(self):
-        with open(self._filename, 'wb') as file:
-            pickle.dump(self._data, file)
+class Trash():
+    def __init__(self, data):
+        self._data = data
+        self._list = data.data
 
     def __len__(self):
-        return len(self._data)
+        return len(self._list)
 
     def __getitem__(self, key):
-        return self._data[key]
+        return self._list[key]
+
+    def store(self):
+        self._data.store()
 
     def add(self, filename: str):
         filename = str(filename)
 
-        if filename not in self._data:
-            self._data.append(filename)
+        if filename not in self._list:
+            self._list.append(filename)
 
     def remove(self, filename: str):
-        return self._data.remove(str(filename))
+        return self._list.remove(str(filename))
 
     def pop(self):
-        return self._data.pop()
+        return self._list.pop()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.store()
+
+Data = Trash(Data.Data('trash', list))
 
 class Frame(tkinter.Frame):
     def __init__(self, master, command = None):
@@ -48,8 +51,6 @@ class Frame(tkinter.Frame):
 
         self.command = command
 
-        self._data = Data()
-        self._sauceNaoData = SauceNao.Data()
         self.focus_set()
 
         self.bind('<Left>',     self.previous)
@@ -101,7 +102,7 @@ class Frame(tkinter.Frame):
             tkinter.Label(oframe, text = 'Empty').pack()
 
     def _showIndex(self, index = 0):
-        length = len(self._data)
+        length = len(Data)
 
         if length == 0:
             self._empty()
@@ -109,7 +110,7 @@ class Frame(tkinter.Frame):
             self._index = index
 
             index = index + 1
-            file = pathlib.Path(self._data[-index])
+            file = pathlib.Path(Data[-index])
 
             if file.exists():
                 self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
@@ -121,6 +122,11 @@ class Frame(tkinter.Frame):
                 self._fileSizeLabel['text'] = file.stat().st_size
 
                 self.update_idletasks()
+            else:
+                with Data as data:
+                    data.pop(-index)
+
+                self._showIndex(index - 1)
 
     def previous(self, event = None):
         if self._index != 0:
@@ -134,20 +140,19 @@ class Frame(tkinter.Frame):
         index = self._index
         file = self._mediaFrame._filename
 
-        self._data.remove(file)
+        with Data as data:
+            data.remove(file)
 
-        if len(self._data) == index:
-            self._showIndex(index - 1)
-        else:
-            self._showIndex(index)
-
-        self._data.store()
+            if len(data) == index:
+                self._showIndex(index - 1)
+            else:
+                self._showIndex(index)
 
         return file
 
     def restore(self, event = None):
-        self._sauceNaoData.add(self._popCurrentItem())
-        self._sauceNaoData.store()
+        with SauceNao.Data as data:
+            data.add(self._popCurrentItem())
 
     def delete(self, event = None):
         pathlib.Path(self._popCurrentItem()).unlink()
@@ -169,8 +174,8 @@ class Frame(tkinter.Frame):
         fileLabel.bind('<Configure>', lambda event: frame.grid_columnconfigure(1, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
         def step():
-            if len(self._data):
-                file = pathlib.Path(self._data.pop())
+            if len(Data):
+                file = pathlib.Path(Data.pop())
 
                 fileLabel['text'] = file.name
 
@@ -178,7 +183,8 @@ class Frame(tkinter.Frame):
 
                 self.after_idle(step)
             else:
-                self._data.store()
+                Data.store()
+
                 self._empty()
 
         step()

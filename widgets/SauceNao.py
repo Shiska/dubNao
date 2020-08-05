@@ -13,15 +13,14 @@ import PIL.Image, PIL.ImageTk
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 
-import Index
+import Data
 import Media
 import Trash
 import Setting
 
 sys.path.pop()
 
-def Data():
-    return Index.ImageMap('sauceNao.pkl')
+Data = Data.ImageMap(Data.Data('sauceNao'))
 
 class Frame(tkinter.Frame):
     def __init__(self, master, command = None, browse = None):
@@ -34,7 +33,6 @@ class Frame(tkinter.Frame):
         self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
         self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
         self._event_loop = asyncio.get_event_loop()
-        self._data = Data()
 
         oframe = tkinter.LabelFrame(self, text = 'SauceNAO')
         oframe.pack()
@@ -120,9 +118,9 @@ class Frame(tkinter.Frame):
 
         self._mediaFrame.release()
 
-        dest = self._data.moveFileTo(file, dest)
+        dest = Data.moveFileTo(file, dest)
 
-        self._data.store()
+        Data.store()
 
         return dest
 
@@ -154,7 +152,7 @@ class Frame(tkinter.Frame):
         self._buttonsFrame.pack_forget()
         self._messageLabel.pack()
 
-        items = (v for hash, value in self._data for v in map(pathlib.Path, value) if v.parent == self._tempDir)
+        items = (v for hash, value in Data for v in map(pathlib.Path, value) if v.parent == self._tempDir)
 
         self.unbind('<Left>')
         self.unbind('<Down>')
@@ -193,7 +191,13 @@ class Frame(tkinter.Frame):
             self.update_idletasks()
         else:
             if self.browse:
-                self.browse()
+                self.after_idle(self.browse)
+            else:
+                for oframe in self.pack_slaves():
+                    for s in oframe.pack_slaves():
+                        s.destroy()
+
+                tkinter.Label(oframe, text = 'Empty').pack()
 
     def _next(self, event = None):
         if self._nextButton['state'] != tkinter.DISABLED:
@@ -238,19 +242,20 @@ class Frame(tkinter.Frame):
             index = self._index
             file = str(self._items.pop(index))
 
-            self._data.remove(file)
-            self._trashData.add(file)
+            with Trash.Data as trashData:
+                Data.remove(file)
 
-            if len(self._items) == index:
-                self._showIndex(index - 1)
-            else:
-                self._showIndex(index)
+                trashData.add(file)
 
-            self._trashData.store()
-            self._data.store()
+                if len(self._items) == index:
+                    self._showIndex(index - 1)
+                else:
+                    self._showIndex(index)
+
+            Data.store()
 
     def _browse(self):
-        self._items = ([v for hash, value in self._data for v in map(pathlib.Path, value) if v.parent == self._tempDir])[::-1]
+        self._items = ([v for hash, value in Data for v in map(pathlib.Path, value) if v.parent == self._tempDir])[::-1]
 
         self.focus_set()
 
@@ -263,7 +268,6 @@ class Frame(tkinter.Frame):
         self._buttonsFrame.pack(expand = True, fill = tkinter.X)
         self._imageFrame.pack()
 
-        self._trashData = Trash.Data()
         self._success = False
         self._showIndex(0)
 

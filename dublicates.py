@@ -1,6 +1,7 @@
 import gc
 import tkinter
 
+import widgets.Data
 import widgets.Index
 import widgets.SauceNao
 import widgets.Select
@@ -19,7 +20,7 @@ class Application(tkinter.Tk):
 
         self.menubar = tkinter.Menu(self)
         # self.menubar.add_command(label = 'Index', command = self._clickedFrame(self._index))
-        self.menubar.add_command(label = 'Select', command = self._clickedFrame(self._select))
+        self.menubar.add_command(label = 'Select', command = self._clickedFrame(self._index))
         self.menubar.add_command(label = 'SauceNAO', command = self._clickedFrame(self._sauceNao))
         self.menubar.add_command(label = 'Trash', command = self._clickedFrame(self._trash))
         self.menubar.add_command(label = 'Settings', command = self._showSettings)

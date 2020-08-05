@@ -1,84 +1,60 @@
-import enum
-import pickle
 import pathlib
 import tkinter
 import tkinter.filedialog
 
-class Data():
-    file = 'settings.pkl'
+import Data
 
-    def __init__(self):
-        return self.init()
+class Settings():
+    def __init__(self, data):
+        self._data = data
+        self._dict = data = data.data
 
-    @classmethod
-    def init(cls):
-        cls.init = lambda *args: None
+        if len(data) == 0:
+            cwd = pathlib.Path.cwd()
 
-        cls._duplicates = tkinter.BooleanVar()
-        cls._autostart = tkinter.BooleanVar()
-        cls._autoselect = tkinter.IntVar()
-        cls._temp = tkinter.StringVar()
-        cls._dest = tkinter.StringVar()
+            tempDir = cwd.joinpath('tmp')
+            destDir = cwd.joinpath('dest')
 
-        if pathlib.Path(cls.file).is_file():
-            return cls.load()
+            pathlib.Path.mkdir(tempDir, exist_ok = True)
+            pathlib.Path.mkdir(destDir, exist_ok = True)
 
-        cwd = pathlib.Path.cwd()
+            data.setdefault('autoselect', 5)
+            data.setdefault('autostart', False)
+            data.setdefault('duplicates', False)
+            data.setdefault('tempDir', tempDir)
+            data.setdefault('destDir', destDir)
+            data.setdefault('directories', dict())
 
-        cls._directories = dict()
-        cls._temp._dir = cwd.joinpath('tmp')
-        cls._dest._dir = cwd.joinpath('dest')
+    def store(self):
+        self._data.store()
 
-        pathlib.Path.mkdir(cls._temp._dir, exist_ok = True)
-        pathlib.Path.mkdir(cls._dest._dir, exist_ok = True)
-
-        cls._temp._dir = str(cls._temp._dir)
-        cls._dest._dir = str(cls._dest._dir)
-
-        return cls.store()
-
-    @classmethod
-    def load(cls):
-        with open(cls.file, 'rb') as file:
-            (cls._directories, cls._temp._dir, cls._dest._dir, autostart, duplicates, autoselect) = pickle.load(file)
-
-        cls._duplicates.set(duplicates)
-        cls._autoselect.set(autoselect)
-        cls._autostart.set(autostart)
-
-    @classmethod
-    def store(cls):
-        with open(cls.file, 'wb') as file:
-            pickle.dump((cls._directories, cls.tempDir, cls.destDir, cls.autostart, cls.duplicates, cls.autoselect), file)
-
-    class classproperty(property):
-        def __get__(self, instance, owner):
-            return super().__get__(owner, owner.init())
-
-    @classproperty
-    def duplicates(cls):
-        return cls._duplicates.get()
-    @classproperty
-    def autostart(cls):
-        return cls._autostart.get()
-    @classproperty
-    def autoselect(cls):
-        return cls._autoselect.get()
-    @classproperty
-    def tempDir(cls):
-        return cls._temp._dir
-    @classproperty
-    def destDir(cls):
-        return cls._dest._dir
-    @classproperty
-    def indexDirs(cls):
-        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[0]})
-    @classproperty
-    def selectDirs(cls):
-        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[1]})
-    @classproperty
-    def ignoreDirs(cls):
-        return cls.getRootFolders({dir for dir, cboxes in cls._directories.items() if cboxes[2]})
+    @property
+    def autoselect(self):
+        return self._dict['autoselect']
+    @property
+    def autostart(self):
+        return self._dict['autostart']
+    @property
+    def duplicates(self):
+        return self._dict['duplicates']
+    @property
+    def tempDir(self):
+        return self._dict['tempDir']
+    @property
+    def destDir(self):
+        return self._dict['destDir']
+    @property
+    def directories(self):
+        return self._dict['directories']
+    @property
+    def indexDirs(self):
+        return self.getRootFolders({dir for dir, cboxes in self.directories.items() if cboxes[0]})
+    @property
+    def selectDirs(self):
+        return self.getRootFolders({dir for dir, cboxes in self.directories.items() if cboxes[1]})
+    @property
+    def ignoreDirs(self):
+        return self.getRootFolders({dir for dir, cboxes in self.directories.items() if cboxes[2]})
 
     @staticmethod
     def getRootFolders(folders: set):
@@ -88,6 +64,8 @@ class Data():
             folders = [x for x in folders if f not in list(x.parents)]
 
         return set(folders)
+
+Data = Settings(Data.Data('settings'))
 
 class Frame(tkinter.LabelFrame):
     column = ('Dir', 'Index', 'Select', 'Ignore', 'Delete')
@@ -99,10 +77,29 @@ class Frame(tkinter.LabelFrame):
         self.confirmcommand = confirmcommand
         self.cancelcommand = cancelcommand
 
-        Data.init()
+        self._copy()
 
-        Data._temp.trace('w', lambda *args: self._setDir(Data._temp, Data._temp.get()))
-        Data._dest.trace('w', lambda *args: self._setDir(Data._dest, Data._dest.get()))
+        self._duplicates = tkinter.BooleanVar()
+        self._autostart = tkinter.BooleanVar()
+        self._autoselect = tkinter.IntVar()
+        self._temp = tkinter.StringVar()
+        self._dest = tkinter.StringVar()
+
+        self._duplicates.set(self._data['duplicates'])
+        self._autostart.set(self._data['autostart'])
+        self._autoselect.set(self._data['autoselect'])
+        self._temp.set(self._data['tempDir'])
+        self._dest.set(self._data['destDir'])
+
+        self._temp._dir = self._data['tempDir']
+        self._dest._dir = self._data['destDir']
+
+        self._duplicates.trace('w', lambda *args: self._data.update({'duplicates': self._duplicates.get()}))
+        self._autostart.trace('w', lambda *args: self._data.update({'autostart': self._autostart.get()}))
+        self._autoselect.trace('w', lambda *args: self._data.update({'autoselect': self._autoselect.get()}))
+
+        self._temp.trace('w', lambda *args: self._setDir(self._temp, 'tempDir'))
+        self._dest.trace('w', lambda *args: self._setDir(self._dest, 'destDir'))
 
         frame = tkinter.LabelFrame(self, text = 'Directories')
         frame.grid_columnconfigure(1, weight = 1)
@@ -111,11 +108,11 @@ class Frame(tkinter.LabelFrame):
         tkinter.Label(frame, text = 'Tmp: ').grid(row = 2, column = 0, sticky = 'e')
         tkinter.Label(frame, text = 'Dest: ').grid(row = 3, column = 0, sticky = 'e')
 
-        tkinter.Entry(frame, textvariable = Data._temp).grid(row = 2, column = 1, sticky = 'ew')
-        tkinter.Entry(frame, textvariable = Data._dest).grid(row = 3, column = 1, sticky = 'ew')
+        tkinter.Entry(frame, textvariable = self._temp).grid(row = 2, column = 1, sticky = 'ew')
+        tkinter.Entry(frame, textvariable = self._dest).grid(row = 3, column = 1, sticky = 'ew')
 
-        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(Data._temp)).grid(row = 2, column = 2, padx = 2.5, sticky = 'w')
-        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(Data._dest)).grid(row = 3, column = 2, padx = 2.5, sticky = 'w')
+        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._temp)).grid(row = 2, column = 2, padx = 2.5, sticky = 'w')
+        tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._dest)).grid(row = 3, column = 2, padx = 2.5, sticky = 'w')
 
         frame = self._folderFrame = tkinter.LabelFrame(self, text = 'Search')
         frame.pack(fill = tkinter.X)
@@ -135,10 +132,10 @@ class Frame(tkinter.LabelFrame):
         frame.grid_columnconfigure(3, weight = 1)
         frame.pack(fill = tkinter.X)
 
-        tkinter.Checkbutton(frame, text = 'Autostart', variable = Data._autostart).grid(column = 1, columnspan = 2)
-        tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = Data._duplicates).grid(column = 1, columnspan = 2)
+        tkinter.Checkbutton(frame, text = 'Autostart', variable = self._autostart).grid(column = 1, columnspan = 2)
+        tkinter.Checkbutton(frame, text = 'Check for duplicates', variable = self._duplicates).grid(column = 1, columnspan = 2)
         tkinter.Label(frame, text = 'Autoselect (seconds): ').grid(row = 2, column = 1, sticky = 'e')
-        tkinter.Spinbox(frame, from_ = 0, to_ = 99, width = 2, textvariable = Data._autoselect).grid(row = 2, column = 2, sticky = 'w')
+        tkinter.Spinbox(frame, from_ = 0, to_ = 99, width = 2, textvariable = self._autoselect).grid(row = 2, column = 2, sticky = 'w')
 
         frame = tkinter.Frame(self)
         frame.pack(fill = tkinter.X)
@@ -151,19 +148,25 @@ class Frame(tkinter.LabelFrame):
             if not self.confirmcommand():
                 return
 
+        Data._dict.update(self._data)
         Data.store()
 
     def _cancel(self):
         if self.cancelcommand:
             self.cancelcommand()
 
-        Data.load()
+        self._copy()
 
-    def _setDir(self, variable, dir):
+    def _copy(self):
+        self._data = Data._dict.copy()
+        self._data['directories'] = self._data['directories'].copy()
+
+    def _setDir(self, variable, attribute):
+        dir = variable.get()
         path = pathlib.Path(dir)
 
         if path.is_dir():
-            variable._dir = str(path.resolve()) if dir else dir
+            self._data[attribute] = variable._dir = str(path.resolve()) if dir else dir
 
     def _askDirectory(self, variable):
         dir = tkinter.filedialog.askdirectory(mustexist = True, initialdir = variable._dir)
@@ -183,7 +186,7 @@ class Frame(tkinter.LabelFrame):
             slaves[self.column.Index].config(state = tkinter.NORMAL)
             slaves[self.column.Select].config(state = tkinter.NORMAL)
 
-        Data._directories[label['text']] = (slaves[self.column.Index].var.get(), slaves[self.column.Select].var.get(), slaves[self.column.Ignore].var.get())
+        self._data['directories'][label['text']] = (slaves[self.column.Index].var.get(), slaves[self.column.Select].var.get(), slaves[self.column.Ignore].var.get())
 
     def _add(self, dir: str, vars: tuple = (False, False, False), row: int = None):
         if dir:
@@ -240,7 +243,8 @@ class Frame(tkinter.LabelFrame):
         grid_slaves = self._folderFrame.grid_slaves
 
         row = label.grid_info()['row']
-        del Data._directories[label['text']]
+
+        del self._data['directories'][label['text']]
 
         for s in grid_slaves(row = row):
             s.destroy()
@@ -257,11 +261,11 @@ class Frame(tkinter.LabelFrame):
             for s in grid_slaves(row = r):
                 s.destroy()
 
-        for dir, cboxes in Data._directories.items():
+        for dir, cboxes in self._data['directories'].items():
             self._add(dir, cboxes)
 
-        Data._temp.set(Data._temp._dir)
-        Data._dest.set(Data._dest._dir)
+        self._temp.set(self._temp._dir)
+        self._dest.set(self._dest._dir)
 
     def pack(self, *args, **kwargs):
         self._resetFrame()
@@ -277,6 +281,7 @@ class Frame(tkinter.LabelFrame):
         self._resetFrame()
 
         return super().place(*args, **kwargs)
+
 
 if __name__ == '__main__':
     root = tkinter.Tk()
