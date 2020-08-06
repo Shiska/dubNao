@@ -113,11 +113,8 @@ class Frame(tkinter.Frame):
 
         self._mediaFrame.release()
 
-        dest = Data.moveFileTo(file, dest)
-
-        Data.store()
-
-        return dest
+        with Data as data:
+            return data.moveFileTo(file, dest)
 
     def _sauceNao(self, file, success, failure, delay = 7500): # 30 seconds / 4 = wait 7.5 seconds inbetween checks
         self._messageLabel['text'] = 'Checking...'
@@ -196,27 +193,30 @@ class Frame(tkinter.Frame):
 
     def _next(self, event = None):
         if self._nextButton['state'] != tkinter.DISABLED:
-            if self._success:
-                self._success = False
-                self._showIndex(self._index)
-            else:
-                self._showIndex(self._index + 1)
+            self._showIndex(self._index + 1)
 
     def _previous(self, event = None):
         if self._previousButton['state'] != tkinter.DISABLED:
             self._showIndex(self._index - 1)
-            self._success = False
 
     def _checkSuccess(self):
-        self._items.pop(self._index)
-        self._success = True
-        self._checkFailure()
+        def proceed():
+            index = self._index
+
+            self._items.pop(index)
+            self._checkFailure()
+
+            if len(self._items) == index:
+                self._showIndex(index - 1)
+            else:
+                self._showIndex(index)
+
+        self.after(5000, proceed)
 
     def _checkFailure(self):
         self._previousButton['state'] = self._previousButton.state
         self._nextButton['state'] = self._nextButton.state
-        self._checkButton['state'] = tkinter.NORMAL
-        self._deleteButton['state'] = tkinter.NORMAL
+        self._checkButton['state'] = self._deleteButton['state'] = self._checkAllButton['state'] = tkinter.NORMAL
 
     def _check(self, event = None):
         if self._checkButton['state'] != tkinter.DISABLED:
@@ -225,10 +225,7 @@ class Frame(tkinter.Frame):
             self._previousButton.state = self._previousButton['state']
             self._nextButton.state = self._nextButton['state']
 
-            self._previousButton['state'] = tkinter.DISABLED
-            self._nextButton['state'] = tkinter.DISABLED
-            self._checkButton['state'] = tkinter.DISABLED
-            self._deleteButton['state'] = tkinter.DISABLED
+            self._previousButton['state'] = self._nextButton['state'] = self._checkButton['state'] = self._deleteButton['state'] = self._checkAllButton['state'] = tkinter.DISABLED
 
             threading.Thread(target = self._sauceNao, args = (self._mediaFrame._filename, self._checkSuccess, self._checkFailure, 0), daemon = True).start()
 
@@ -239,7 +236,6 @@ class Frame(tkinter.Frame):
 
             with Trash.Data as trashData:
                 Data.remove(file)
-
                 trashData.add(file)
 
                 if len(self._items) == index:
@@ -263,7 +259,6 @@ class Frame(tkinter.Frame):
         self._buttonsFrame.pack(expand = True, fill = tkinter.X)
         self._imageFrame.pack()
 
-        self._success = False
         self._showIndex(0)
 
 if __name__ == '__main__':
