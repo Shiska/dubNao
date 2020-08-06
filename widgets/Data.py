@@ -7,6 +7,11 @@ import collections
 import PIL.Image
 
 class Data():
+    """
+        >>> Data('key').data["key"] = None
+        >>> Data('key', default = list).data["key"] = None
+        >>> Data('key', filename = 'unknown.file').data["key"] = None
+    """
     _data = dict() # shares file data, to avoid reading from the file multiple times
     _dump = dict() # shares file dump, to avoid writing to the file multiple times
 
@@ -20,9 +25,14 @@ class Data():
 
             if pathlib.Path(filename).is_file():
                 with open(filename, 'rb') as file:
-                    self._dump[filename] = dump = file.read()
+                    dump = file.read()
 
-            self._data[filename] = data = pickle.loads(dump)
+                data = pickle.loads(dump)
+            else:
+                dump = pickle.dumps(data)
+
+            self._data[filename] = data
+            self._dump[filename] = dump
 
         self._file = data
 
@@ -46,24 +56,39 @@ class Data():
 
 class ImageMap():
     def __init__(self, data):
+        """ >>> _ = ImageMap(Data('')) """
+
         self._data = data
         self._dict = data.data
 
     def clear(self):
+        """ >>> ImageMap(Data('')).clear() """
+
         self._dict.clear()
 
     def store(self):
         self._data.store()
 
     def __len__(self):
+        """
+            >>> len(ImageMap(Data('')))
+            0
+        """
         return len(self._dict)
 
     def add(self, filename: str) -> str:
+        """
+            >>> if True:
+            ...     map = ImageMap(Data(''))
+            ...     file = pathlib.Path('widgets', 'image.png').absolute()
+            ...     hash = map.add(file)
+            ...     str(file) == next(iter(map.pop()[1]))
+            True
+        """
         hash = self.getHash(filename)
 
         if hash:
-            hash = self._dict.setdefault(hash, set())
-            hash.add(str(filename))
+            self._dict.setdefault(hash, set()).add(str(filename))
 
         return hash
 
@@ -78,6 +103,17 @@ class ImageMap():
             pass
 
     def remove(self, filename: str = None, hash: str = None):
+        """
+            >>> if True:
+            ...     map = ImageMap(Data(''))
+            ...     file = pathlib.Path('widgets', 'image.png').absolute()
+            ...     hash = map.add(file)
+            ...     len(map) == 1
+            ...     map.remove(file, hash)
+            ...     len(map) == 0
+            True
+            True
+        """
         if filename:
             if not hash:
                 hash = self.getHash(filename)
@@ -114,10 +150,20 @@ class ImageMap():
             self.remove(v, hash)
 
     def __iter__(self):
+        """ >>> next(iter(ImageMap(Data(''))), None) """
+
         for hash, value in self._iter_():
             yield hash, map(str, value)
 
     def __getitem__(self, key):
+        """
+            >>> if True:
+            ...     map = ImageMap(Data(''))
+            ...     map._dict['key'] = 'hi'
+            ...     map['key']
+            ...     del map._dict['key']
+            'hi'
+        """
         return self._dict[key]
 
     def renameFile(self, src, dest):
@@ -167,4 +213,6 @@ class ImageMap():
         self.store()
 
 if __name__ == '__main__':
-    ImageMap(Data("hi2"))
+    import doctest
+
+    doctest.testmod()
