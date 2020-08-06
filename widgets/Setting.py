@@ -2,7 +2,7 @@ import pathlib
 import tkinter
 import tkinter.filedialog
 
-import Data
+import widgets.Data as Data
 
 class Settings():
     def __init__(self, data):

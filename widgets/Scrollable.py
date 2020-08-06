@@ -71,14 +71,14 @@ class Frame(tkinter.Frame):
         self.destroy = lambda: (destroy(), oframe.destroy())
 
 if __name__ == '__main__':
-    import Media
-    import Select
+    import widgets.Media as Media
+    import widgets.Select as Select
 
     root = tkinter.Tk()
 
     frame = Frame(root)
     frame.pack(fill = tkinter.BOTH)
 
-    Media.Frame(frame, next(next(iter(Select.Data()))[1]), thumbSize = None).pack()
+    Media.Frame(frame, next(next(iter(Select.Data))[1]), thumbSize = None).pack()
     
     root.mainloop()

@@ -1,22 +1,15 @@
-import sys
 import pathlib
 import tkinter
-import itertools
-import collections
 
 import PIL.ImageTk
 import PIL.ImageChops
 
-sys.path.append(str(pathlib.Path(__file__).parent))
-
-import Data
-import Index
-import Media
-import Trash
-import Setting
-import SauceNao
-
-sys.path.pop()
+import widgets.Data as Data
+import widgets.Index as Index
+import widgets.Media as Media
+import widgets.Trash as Trash
+import widgets.Setting as Setting
+import widgets.SauceNao as SauceNao
 
 Data = Data.ImageMap(Data.Data('select'))
 
@@ -478,7 +471,7 @@ class Frame(tkinter.Frame):
                 self.command()
 
 if __name__ == '__main__':
-    import Scrollable
+    import widgets.Scrollable as Scrollable
 
     root = tkinter.Tk()
     root.state('zoomed')

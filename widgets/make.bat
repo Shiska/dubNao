@@ -1,6 +1,11 @@
 @setlocal
 @echo off
 
-call %~dp0\..\env\Scripts\activate
+for %%i in (.) do (
+    set folder=%%~ni
+)
+cd ..
 
-python %1
+call env\Scripts\activate
+
+python -m %folder%.%~n1

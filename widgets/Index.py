@@ -1,13 +1,8 @@
-import sys
 import pathlib
 import tkinter
 
-sys.path.append(str(pathlib.Path(__file__).parent))
-
-import Data
-import Setting
-
-sys.path.pop()
+import widgets.Data as Data
+import widgets.Setting as Setting
 
 Data = Data.ImageMap(Data.Data('index'))
 

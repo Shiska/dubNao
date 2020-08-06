@@ -1,15 +1,9 @@
-import sys
-import pickle
 import pathlib
 import tkinter
 
-sys.path.append(str(pathlib.Path(__file__).parent))
-
-import Data
-import Media
-import SauceNao
-
-sys.path.pop()
+import widgets.Data as Data
+import widgets.Media as Media
+import widgets.SauceNao as SauceNao
 
 class Trash():
     def __init__(self, data):

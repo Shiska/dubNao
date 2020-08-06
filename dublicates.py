@@ -1,13 +1,11 @@
-import gc
 import tkinter
 
-import widgets.Data
-import widgets.Index
-import widgets.SauceNao
-import widgets.Select
-import widgets.Scrollable
-import widgets.Setting
-import widgets.Trash
+import widgets.Index as Index
+import widgets.SauceNao as SauceNao
+import widgets.Select as Select
+import widgets.Scrollable as Scrollable
+import widgets.Setting as Setting
+import widgets.Trash as Trash
 
 class Application(tkinter.Tk):
     def __init__(self):
@@ -28,15 +26,15 @@ class Application(tkinter.Tk):
 
         self.config(menu = self.menubar)
 
-        sframe = widgets.Scrollable.Frame(self)
+        sframe = Scrollable.Frame(self)
         sframe.pack(expand = True, fill = tkinter.BOTH)
 
-        self._settingFrame = widgets.Setting.Frame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
+        self._settingFrame = Setting.Frame(sframe, confirmcommand = self._checkSettings, cancelcommand = self._hideSettings)
         self._frame = tkinter.Frame(sframe)
         self._settingsShown = False
         self._onFrameDelete = None
 
-        if widgets.Setting.Data.autostart:
+        if Setting.Data.autostart:
             self._start()
         else:
             self._showSettings()
@@ -50,9 +48,9 @@ class Application(tkinter.Tk):
             self._settingFrame.pack(fill = tkinter.BOTH)
 
     def _checkSettings(self):
-        if not widgets.Setting.Data.tempDir:
+        if not Setting.Data.tempDir:
             tkinter.messagebox.showwarning('Warning', 'Temp directory not set!')
-        elif not widgets.Setting.Data.destDir:
+        elif not Setting.Data.destDir:
             tkinter.messagebox.showwarning('Warning', 'Dest directory not set!')
         else:
             self._hideSettings()
@@ -69,7 +67,7 @@ class Application(tkinter.Tk):
 
     def _start(self):
         self._start = lambda: None
-        self._setFrame(widgets.SauceNao.Frame, command = self._index)
+        self._setFrame(SauceNao.Frame, command = self._index)
 
     def _clickedFrame(self, frame):
         def clicked():
@@ -89,16 +87,16 @@ class Application(tkinter.Tk):
             self._frame.pack_forget()
 
     def _sauceNao(self):
-        self._setFrame(widgets.SauceNao.Frame, browse = self._index)
+        self._setFrame(SauceNao.Frame, browse = self._index)
 
     def _index(self):
-        self._setFrame(widgets.Index.Frame, command = self._select)
+        self._setFrame(Index.Frame, command = self._select)
 
     def _select(self):
-        self._setFrame(widgets.Select.Frame, command = self._trash)
+        self._setFrame(Select.Frame, command = self._trash)
 
     def _trash(self):
-        self._setFrame(widgets.Trash.Frame)
+        self._setFrame(Trash.Frame)
 
 if __name__ == '__main__':
     Application()

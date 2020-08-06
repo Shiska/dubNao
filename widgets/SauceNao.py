@@ -1,6 +1,5 @@
 import re
 import io
-import sys
 import asyncio
 import pathlib
 import slugify
@@ -11,14 +10,10 @@ import collections
 import urllib.request
 import PIL.Image, PIL.ImageTk
 
-sys.path.append(str(pathlib.Path(__file__).parent))
-
-import Data
-import Media
-import Trash
-import Setting
-
-sys.path.pop()
+import widgets.Data as Data
+import widgets.Media as Media
+import widgets.Trash as Trash
+import widgets.Setting as Setting
 
 Data = Data.ImageMap(Data.Data('sauceNao'))
 

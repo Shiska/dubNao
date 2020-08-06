@@ -222,11 +222,11 @@ class Frame(tkinter.Frame):
         return not self._delay
 
 if __name__ == '__main__':
-    import Select
+    import widgets.Select as Select
 
     root = tkinter.Tk()
 
-    frame = Frame(root, next(next(iter(Select.Data()))[1]))
+    frame = Frame(root, next(next(iter(Select.Data))[1]))
     frame.pack()
 
     frame.label.bind('<Button-1>', frame.toggle)
