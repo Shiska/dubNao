@@ -73,13 +73,10 @@ class Frame(tkinter.Frame):
                         with PIL.Image.open(file) as image:
                             pass # just open and close it again, data stays in image object
 
-                        if image.width > 200 or image.height > 200:
-                            if self._tempDir not in pfile.parents:
-                                file = data.moveFileTo(file, self._tempDir)
+                        if self._tempDir not in pfile.parents:
+                            file = data.moveFileTo(file, self._tempDir)
 
-                            Data.add(file)
-                        else: # delete small files
-                            pfile.unlink()
+                        Data.add(file)
 
                 self.after_idle(moveFiles)
             else:
@@ -208,6 +205,7 @@ class Frame(tkinter.Frame):
             self._nextButton['text'] = self._nextButton._text
             self.after_cancel(self._after)
             self._after = None
+
             return True
 
         return False
@@ -273,14 +271,17 @@ class Frame(tkinter.Frame):
         return enter
 
     def difference(self, event = None):
-        if self._diffFrame:
-            self._diffFrame = None
-
-            for _, mediaFrame in self.iterImages():
-                mediaFrame['image'] = mediaFrame.photo
+        if self._after:
+            self._stopAutoselect()
         else:
-            self._diffFrame = next(self.iterImages())[1]
-            self._setDiffImages(self._diffFrame)
+            if self._diffFrame:
+                self._diffFrame = None
+
+                for _, mediaFrame in self.iterImages():
+                    mediaFrame['image'] = mediaFrame.photo
+            else:
+                self._diffFrame = next(self.iterImages())[1]
+                self._setDiffImages(self._diffFrame)
 
     def _onFrameChange(self, mframe, thumbnail):
         if self._diffFrame:
@@ -324,31 +325,37 @@ class Frame(tkinter.Frame):
             self.after_idle(mediaFrame.reset)
 
     def delete(self, event = None):
-        self._items.popitem()
+        if self._after:
+            self._stopAutoselect()
+        else:
+            self._items.popitem() # store is called by Trash and SauceNao
 
-        with Trash.Data as trashData:
-            with SauceNao.Data as sauceNaoData:
-                for _, mediaFrame in self.iterImages():
-                    mediaFrame.release()
+            with Trash.Data as trashData:
+                with SauceNao.Data as sauceNaoData:
+                    for _, mediaFrame in self.iterImages():
+                        mediaFrame.release()
 
-                    file = str(mediaFrame._file)
+                        file = str(mediaFrame._file)
 
-                    trashData.add(file)
+                        trashData.add(file)
 
-                    if mediaFrame._extern:
-                        sauceNaoData.remove(file)
+                        if mediaFrame._extern:
+                            sauceNaoData.remove(file)
 
-        self.after_idle(self.skip)
+            self.after_idle(self.skip)
 
     def uncheck(self, event = None):
-        for _, mediaFrame in self.iterImages():
-            mediaFrame._var.set(False);
+        if self._after:
+            self._stopAutoselect()
+        else:
+            for _, mediaFrame in self.iterImages():
+                mediaFrame._var.set(False);
 
     def next(self, event = None):
         if self._after:
             self._stopAutoselect()
         else:
-            self._items.popitem()
+            self._items.popitem() # store is called by Trash and SauceNao
 
             with Trash.Data as trashData:
                 with SauceNao.Data as sauceNaoData:
@@ -435,11 +442,9 @@ class Frame(tkinter.Frame):
         self._onEnterImage(data['frame'][0])(None)
 
     def skip(self, event = None):
-        Data.store()
+        (key, files) = next(reversed(self._items.items()), (None, None))
 
-        if len(self._items):
-            (key, files) = next(reversed(self._items.items()))
-
+        if key:
             isThereAnyVideo = 0
             frame = self._newFrame(key)
 
