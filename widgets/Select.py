@@ -255,6 +255,22 @@ class Frame(tkinter.Frame):
             mediaLabel['text'] = 'Difference: ' + str(difference)
             mediaFrame._difference = difference
 
+    def _setDiffText(self, frame):
+        thumbnail = self._resizeImage(frame._image)
+
+        for mediaLabel, mediaFrame in self.iterImages():
+            (_, difference) = self.getDifference(thumbnail, self._resizeImage(mediaFrame._image))
+
+            mediaLabel['text'] = 'Difference: ' + str(difference)
+            mediaFrame._difference = difference
+
+    def _initDifference(self):
+        thumbnails = [(mediaFrame, self._resizeImage(mediaFrame._image)) for _, mediaFrame in self.iterImages()]
+        thumbnailZero = thumbnails[0][1]
+
+        for mediaFrame, thumbnail in thumbnails:
+            (_, mediaFrame._difference) = self.getDifference(thumbnailZero, thumbnail)
+
     def _onEnterImage(self, frame):
         def enter(event):
             if self._diffFrame:
@@ -263,6 +279,8 @@ class Frame(tkinter.Frame):
             else:
                 if self._inFrame:
                     self._inFrame._setPhoto(self._inFrame._thumbnail)
+                else: # init frame
+                    self._setDiffText(frame)
 
                 self._inFrame = frame
 
@@ -402,6 +420,9 @@ class Frame(tkinter.Frame):
         return 0
 
     def _sortFrames(self, frame):
+        # calculate difference values for getFileData
+        self._initDifference()
+
         data = self.getFileData()
         ranking = self.groupData(data)
         selected = self._preselectCheckbox(data)
@@ -439,7 +460,7 @@ class Frame(tkinter.Frame):
 
             mediaFrame.master.grid(row = 2, column = column)
 
-        self._onEnterImage(data['frame'][0])(None)
+        self._onEnterImage(frame.grid_slaves(2, 0)[0].grid_slaves()[0])(None)
 
     def skip(self, event = None):
         (key, files) = next(reversed(self._items.items()), (None, None))
@@ -460,9 +481,6 @@ class Frame(tkinter.Frame):
                 self._vButtonsFrame.pack()
             else:
                 self._vButtonsFrame.pack_forget()
-            # to calculate difference value and hide it again
-            self.difference()
-            self.difference()
 
             self._sortFrames(frame)
 
