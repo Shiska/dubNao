@@ -96,11 +96,12 @@ class ImageMap():
         file = pathlib.Path(filename)
 
         # if imghdr.what(file):
-        try:
-            with PIL.Image.open(file) as image:
-                return str(imagehash.phash(image.convert('RGBA')))
-        except PIL.UnidentifiedImageError:
-            pass
+        if file.exists():
+            try:
+                with PIL.Image.open(file) as image:
+                    return str(imagehash.phash(image.convert('RGBA')))
+            except PIL.UnidentifiedImageError:
+                pass
 
     def remove(self, filename: str = None, hash: str = None):
         """

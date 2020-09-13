@@ -80,7 +80,7 @@ class Frame(tkinter.Frame):
             for key, value in result.data.items():
                 data[key].append(slugify.slugify(str(value)))
         # 1. split all values by spaces, now '-' after slugify (join + split)
-        # 2. remove dublicated items (set)
+        # 2. remove duplicated items (set)
         # 3. filter empty strings
         # 4. sort list so different orders result in the same output
         # 5. joint result by spaces '-'
@@ -132,7 +132,7 @@ class Frame(tkinter.Frame):
         except Exception as e:
             self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
 
-            func = failure
+            func = success
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 
