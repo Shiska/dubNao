@@ -124,15 +124,27 @@ class Frame(tkinter.Frame):
         except pysaucenao.ShortLimitReachedException as e: # 4 checks in 30 seconds
             self._messageLabel['text'] = self.removeHTML(e)
 
+            print("ShortLimitReachedException")
             func = lambda: self._sauceNao(file, success, failure)
         except pysaucenao.DailyLimitReachedException as e:
             self._messageLabel['text'] = self.removeHTML(e)
 
+            print("DailyLimitReachedException", flush = True)
+
             func = failure
         except Exception as e:
-            self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
+            print("Exception", e, flush = True)
 
-            func = success
+            if "Daily Search Limit Exceeded." in str(e):
+                self._messageLabel['text'] = self.removeHTML(e)
+
+                print("DailyLimitReachedException", flush = True)
+
+                func = failure
+            else:
+                self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
+
+                func = success
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 

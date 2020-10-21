@@ -93,6 +93,7 @@ class Frame(tkinter.Frame):
 
     def _initSelect(self):
         self._duplicates = Setting.Data.duplicates
+
         self._items = Data._dict
 
         oframe = tkinter.LabelFrame(self, text = 'Selection')
@@ -465,33 +466,38 @@ class Frame(tkinter.Frame):
     def skip(self, event = None):
         (key, files) = next(reversed(self._items.items()), (None, None))
 
-        if key:
-            isThereAnyVideo = 0
-            frame = self._newFrame(key)
+        files = Data[key]
 
-            for file in files:
-                isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, False)
-
-            for file in SauceNao.Data[key]:
-                isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, True)
-
-            self._videosPlaying = True
-
-            if isThereAnyVideo:
-                self._vButtonsFrame.pack()
-            else:
-                self._vButtonsFrame.pack_forget()
-
-            self._sortFrames(frame)
-
-            frame.pack(fill = tkinter.BOTH)
+        if len(files) == 0:
+            self.next()
         else:
-            if self._duplicates:
-                self._duplicates = None
-                self._items = {key: [] for key, value in SauceNao.Data if len(value) > 1}
+            if key:
+                isThereAnyVideo = 0
+                frame = self._newFrame(key)
 
-            if self.command:
-                self.command()
+                for file in files:
+                    isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, False)
+
+                for file in SauceNao.Data[key]:
+                    isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, True)
+
+                self._videosPlaying = True
+
+                if isThereAnyVideo:
+                    self._vButtonsFrame.pack()
+                else:
+                    self._vButtonsFrame.pack_forget()
+
+                self._sortFrames(frame)
+
+                frame.pack(fill = tkinter.BOTH)
+            else:
+                if self._duplicates:
+                    self._duplicates = None
+                    self._items = {key: [] for key, value in SauceNao.Data if len(value) > 1}
+
+                if self.command:
+                    self.command()
 
 if __name__ == '__main__':
     import widgets.Scrollable as Scrollable

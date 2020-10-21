@@ -28,7 +28,10 @@ class Trash():
     def remove(self, filename: str):
         return self._list.remove(str(filename))
 
-    def pop(self):
+    def pop(self, index = None):
+        if index:
+            return self._list.pop(index)
+
         return self._list.pop()
 
     def __enter__(self):
@@ -173,7 +176,8 @@ class Frame(tkinter.Frame):
 
                 fileLabel['text'] = file.name
 
-                file.unlink()
+                if file.exists():
+                    file.unlink()
 
                 self.after_idle(step)
             else:

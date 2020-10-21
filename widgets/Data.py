@@ -165,7 +165,8 @@ class ImageMap():
             ...     del map._dict['key']
             'hi'
         """
-        return self._dict[key]
+
+        return [v for v in self._dict[key] if pathlib.Path(v).exists()]
 
     def renameFile(self, src, dest):
         src = pathlib.Path(src)

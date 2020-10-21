@@ -1,5 +1,5 @@
 pillow
-ImageHash
+imagehash
 pysaucenao
 opencv-python
 python-slugify

@@ -53,6 +53,8 @@ class Frame(tkinter.Frame):
             - or URL of video stream (eg. protocol://host:port/script_name?script_params|auth)
             - or GStreamer pipeline string in gst-launch tool format in case if GStreamer is used as backend Note that each video stream or IP camera feed has its own URL scheme. Please refer to the documentation of source stream to know the right URL.
         """
+        filename = str(filename)
+
         self._delay = None
         self.scale.pack_forget()
         self._filename = filename
