@@ -4,6 +4,7 @@ import asyncio
 import pathlib
 import slugify
 import tkinter
+import traceback
 import threading
 import pysaucenao
 import collections
@@ -24,7 +25,8 @@ class Frame(tkinter.Frame):
         self.command = command or self._browse
         self.browse = browse
 
-        self._snao = pysaucenao.SauceNao()
+        self._snao = pysaucenao.SauceNao(api_key = Setting.Data.apiKey)
+
         self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
         self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
         self._event_loop = asyncio.get_event_loop()
@@ -122,29 +124,45 @@ class Frame(tkinter.Frame):
         try:
             results = self._event_loop.run_until_complete(self._snao.from_file(file)) # impossible to integrate into mainloop because this shit forces you to use a second event loops
         except pysaucenao.ShortLimitReachedException as e: # 4 checks in 30 seconds
-            self._messageLabel['text'] = self.removeHTML(e)
+            self._messageLabel['text'] = 'Short limit reached, waiting...'
 
-            print("ShortLimitReachedException")
             func = lambda: self._sauceNao(file, success, failure)
         except pysaucenao.DailyLimitReachedException as e:
-            self._messageLabel['text'] = self.removeHTML(e)
+            self._messageLabel['text'] = 'Daily limit reached!'
 
-            print("DailyLimitReachedException", flush = True)
+            func = failure
+        except pysaucenao.FileSizeLimitException as e:
+            self._messageLabel['text'] = 'File to big\nMoved file to "' +  str(self._moveFileTo(file, '_error_\_tobig_').parent) + '"'
+
+            func = success
+        except pysaucenao.InvalidOrWrongApiKeyException as e:
+            self._messageLabel['text'] = 'Invalid or wrong API Key'
+
+            func = failure
+        except pysaucenao.ImageSizeException as e:
+            self._messageLabel['text'] = 'File to small\nMoved file to "' +  str(self._moveFileTo(file, '_error_\_tosmall_').parent) + '"'
+
+            func = success
+        except pysaucenao.InvalidImageException as e:
+            self._messageLabel['text'] = 'Invalid image\nMoved file to "' +  str(self._moveFileTo(file, '_error_\_invalid_').parent) + '"'
+
+            func = success
+        except pysaucenao.TooManyFailedRequestsException as e:
+            self._messageLabel['text'] = 'To many failed requests, waiting...'
+
+            func = lambda: self._sauceNao(file, success, failure)
+        except pysaucenao.BannedException as e:
+            self._messageLabel['text'] = 'Account banned!'
+
+            func = failure
+        except pysaucenao.UnknownStatusCodeException as e:
+            self._messageLabel['text'] = self.removeHTML(e)
 
             func = failure
         except Exception as e:
-            print("Exception", e, flush = True)
+            self._messageLabel['text'] = traceback.format_exc()
 
-            if "Daily Search Limit Exceeded." in str(e):
-                self._messageLabel['text'] = self.removeHTML(e)
-
-                print("DailyLimitReachedException", flush = True)
-
-                func = failure
-            else:
-                self._messageLabel['text'] = self.removeHTML(e) + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
-
-                func = success
+            func = failure
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 

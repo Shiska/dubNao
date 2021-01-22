@@ -9,21 +9,22 @@ class Settings():
         self._data = data
         self._dict = data = data.data
 
-        if len(data) == 0:
-            cwd = pathlib.Path.cwd()
+        # if len(data) == 0:
+        cwd = pathlib.Path.cwd()
 
-            tempDir = cwd.joinpath('tmp')
-            destDir = cwd.joinpath('dest')
+        tempDir = cwd.joinpath('tmp')
+        destDir = cwd.joinpath('dest')
 
-            pathlib.Path.mkdir(tempDir, exist_ok = True)
-            pathlib.Path.mkdir(destDir, exist_ok = True)
+        pathlib.Path.mkdir(tempDir, exist_ok = True)
+        pathlib.Path.mkdir(destDir, exist_ok = True)
 
-            data.setdefault('autoselect', 5)
-            data.setdefault('autostart', False)
-            data.setdefault('duplicates', False)
-            data.setdefault('tempDir', tempDir)
-            data.setdefault('destDir', destDir)
-            data.setdefault('directories', dict())
+        data.setdefault('autoselect', 5)
+        data.setdefault('autostart', False)
+        data.setdefault('duplicates', False)
+        data.setdefault('tempDir', tempDir)
+        data.setdefault('destDir', destDir)
+        data.setdefault('directories', dict())
+        data.setdefault('apiKey', '')
 
     def store(self):
         self._data.store()
@@ -43,6 +44,9 @@ class Settings():
     @property
     def destDir(self):
         return self._dict['destDir']
+    @property
+    def apiKey(self):
+        return self._dict['apiKey']
     @property
     def directories(self):
         return self._dict['directories']
@@ -84,15 +88,18 @@ class Frame(tkinter.LabelFrame):
         self._autoselect = tkinter.IntVar()
         self._temp = tkinter.StringVar()
         self._dest = tkinter.StringVar()
+        self._apikey = tkinter.StringVar()
 
         self._duplicates.set(self._data['duplicates'])
         self._autostart.set(self._data['autostart'])
         self._autoselect.set(self._data['autoselect'])
-        self._temp.set(self._data['tempDir'])
-        self._dest.set(self._data['destDir'])
 
         self._temp._dir = self._data['tempDir']
         self._dest._dir = self._data['destDir']
+
+        self._temp.set(self._temp._dir)
+        self._dest.set(self._dest._dir)
+        self._apikey.set(self._data['apiKey'])
 
         self._duplicates.trace('w', lambda *args: self._data.update({'duplicates': self._duplicates.get()}))
         self._autostart.trace('w', lambda *args: self._data.update({'autostart': self._autostart.get()}))
@@ -100,6 +107,7 @@ class Frame(tkinter.LabelFrame):
 
         self._temp.trace('w', lambda *args: self._setDir(self._temp, 'tempDir'))
         self._dest.trace('w', lambda *args: self._setDir(self._dest, 'destDir'))
+        self._apikey.trace('w', lambda *args: self._data.update({'apiKey': self._apikey.get()}))
 
         frame = tkinter.LabelFrame(self, text = 'Directories')
         frame.grid_columnconfigure(1, weight = 1)
@@ -113,6 +121,13 @@ class Frame(tkinter.LabelFrame):
 
         tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._temp)).grid(row = 2, column = 2, padx = 2.5, sticky = 'w')
         tkinter.Button(frame, text = '...', command = lambda: self._askDirectory(self._dest)).grid(row = 3, column = 2, padx = 2.5, sticky = 'w')
+
+        frame = tkinter.LabelFrame(self, text = 'API')
+        frame.grid_columnconfigure(1, weight = 1)
+        frame.pack(fill = tkinter.X)
+
+        tkinter.Label(frame, text = 'API Key: ').grid(row = 2, column = 0, sticky = 'e')
+        tkinter.Entry(frame, textvariable = self._apikey).grid(row = 2, column = 1, sticky = 'ew')
 
         frame = self._folderFrame = tkinter.LabelFrame(self, text = 'Search')
         frame.pack(fill = tkinter.X)
@@ -266,6 +281,7 @@ class Frame(tkinter.LabelFrame):
 
         self._temp.set(self._temp._dir)
         self._dest.set(self._dest._dir)
+        self._apikey.set(self._data['apiKey'])
 
     def pack(self, *args, **kwargs):
         self._resetFrame()
@@ -281,7 +297,6 @@ class Frame(tkinter.LabelFrame):
         self._resetFrame()
 
         return super().place(*args, **kwargs)
-
 
 if __name__ == '__main__':
     root = tkinter.Tk()
