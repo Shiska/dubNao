@@ -29,7 +29,7 @@ class Frame(tkinter.Frame):
 
         self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
         self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
-        self._event_loop = asyncio.get_event_loop()
+        self._event_loop = asyncio.new_event_loop()
 
         oframe = tkinter.LabelFrame(self, text = 'SauceNAO')
         oframe.pack()
@@ -121,8 +121,8 @@ class Frame(tkinter.Frame):
     def _sauceNao(self, file, success, failure, delay = 7500): # 30 seconds / 4 = wait 7.5 seconds inbetween checks
         self._messageLabel['text'] = 'Checking...'
 
-        try:
-            results = self._event_loop.run_until_complete(self._snao.from_file(file)) # impossible to integrate into mainloop because this shit forces you to use a second event loops
+        try: # impossible to integrate into the mainloop because all asyncio functions are blocking!!!!!!
+            results = self._event_loop.run_until_complete(self._snao.from_file(file))
         except pysaucenao.ShortLimitReachedException as e: # 4 checks in 30 seconds
             self._messageLabel['text'] = 'Short limit reached, waiting...'
 
@@ -148,9 +148,9 @@ class Frame(tkinter.Frame):
 
             func = success
         except pysaucenao.TooManyFailedRequestsException as e:
-            self._messageLabel['text'] = 'To many failed requests, waiting...'
+            self._messageLabel['text'] = 'To many failed requests'
 
-            func = lambda: self._sauceNao(file, success, failure)
+            func = failure
         except pysaucenao.BannedException as e:
             self._messageLabel['text'] = 'Account banned!'
 
@@ -160,9 +160,9 @@ class Frame(tkinter.Frame):
 
             func = failure
         except Exception as e:
-            self._messageLabel['text'] = traceback.format_exc()
+            self._messageLabel['text'] = traceback.format_exc() + '\nMoved file to "' +  str(self._moveFileTo(file, '_error_').parent) + '"'
 
-            func = failure
+            func = success
         else:
             self._messageLabel['text'] = 'Moved file to "' +  str(self._moveFileTo(file, self._getDestFolder(results)).parent) + '"'
 
