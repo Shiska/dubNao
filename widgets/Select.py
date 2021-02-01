@@ -29,10 +29,7 @@ class Frame(tkinter.Frame):
         super().__init__(master)
 
         self.command = command
-
         self._after = None
-        self._tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
-        self._destDir = pathlib.Path(Setting.Data.destDir).resolve()
 
         self.focus_set()
         self.after_idle(self._initMove)
@@ -58,23 +55,29 @@ class Frame(tkinter.Frame):
 
         frame.bind('<Configure>', lambda event: oframe.grid_columnconfigure(0, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
+        tempDir = pathlib.Path(Setting.Data.tempDir).resolve()
+        destDir = pathlib.Path(Setting.Data.destDir).resolve()
+        selectDirs = set(Setting.Data.selectDirs)
+
         def moveFiles():
             keyLabel['text'], file = next(items, ('', None))
 
             if file:
-                fileLabel['text'] = file
-
                 pfile = pathlib.Path(file)
+                parent = pfile.parent
+                parents = pfile.parents
 
-                if pfile.parent != self._tempDir:
-                    if self._destDir in pfile.parents:
+                if parent != tempDir:
+                    if destDir in parents or len(selectDirs.intersection(parents)) == 0:
                         SauceNao.Data.add(file)
                     else:
+                        fileLabel['text'] = file
+
                         with PIL.Image.open(file) as image:
                             pass # just open and close it again, data stays in image object
 
-                        if self._tempDir not in pfile.parents:
-                            file = data.moveFileTo(file, self._tempDir)
+                        if tempDir not in parents:
+                            file = data.moveFileTo(file, tempDir)
 
                         Data.add(file)
 
