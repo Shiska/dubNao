@@ -475,25 +475,34 @@ class Frame(tkinter.Frame):
             self.next()
         else:
             if key:
-                isThereAnyVideo = 0
-                frame = self._newFrame(key)
+                if key in Trash.Data._dict and key not in SauceNao.Data:
+                    self._items.popitem() # store is called by Trash
 
-                for file in files:
-                    isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, False)
+                    with Trash.Data as trashData:
+                        for file in files:
+                            trashData.add(str(file))
 
-                for file in SauceNao.Data[key]:
-                    isThereAnyVideo = isThereAnyVideo + self._createFrame(frame, file, True)
-
-                self._videosPlaying = True
-
-                if isThereAnyVideo:
-                    self._vButtonsFrame.pack()
+                    self.after_idle(self.skip)
                 else:
-                    self._vButtonsFrame.pack_forget()
+                    isThereAnyVideo = 0
+                    frame = self._newFrame(key)
 
-                self._sortFrames(frame)
+                    for file in files:
+                        isThereAnyVideo += self._createFrame(frame, file, False)
 
-                frame.pack(fill = tkinter.BOTH)
+                    for file in SauceNao.Data[key]:
+                        isThereAnyVideo += self._createFrame(frame, file, True)
+
+                    self._videosPlaying = True
+
+                    if isThereAnyVideo:
+                        self._vButtonsFrame.pack()
+                    else:
+                        self._vButtonsFrame.pack_forget()
+
+                    self._sortFrames(frame)
+
+                    frame.pack(fill = tkinter.BOTH)
             else:
                 if self._duplicates:
                     self._duplicates = None

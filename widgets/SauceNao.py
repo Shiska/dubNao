@@ -60,6 +60,14 @@ class Frame(tkinter.Frame):
         self._messageLabel = tkinter.Label(oframe)
         self._messageLabel.pack()
 
+        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value) if v.parent == self._tempDir)
+        item = next(self._itemsGenerator, None)
+
+        if item:
+            self._items = [item]
+        else:
+            self._items = []
+
         if browse:
             self._browse()
         else:
@@ -89,8 +97,6 @@ class Frame(tkinter.Frame):
         data = {key: '-'.join(sorted(filter(None, set('-'.join(value).split('-'))))) for key, value in data.items()}
         
         dirs = []
-        name = None
-
         name = list(filter(None, (data.get('material'), data.get('source'), data.get('title'))))
 
         if len(name):
@@ -182,7 +188,10 @@ class Frame(tkinter.Frame):
         self.unbind('<Right>')
 
         def nextItem():
-            file = next(items, None)
+            if len(self._items):
+                file = self._items.pop()
+            else:
+                file = next(self._itemsGenerator, None)
 
             if not file: # no files found
                 return self.after_idle(self.command)
@@ -202,12 +211,19 @@ class Frame(tkinter.Frame):
 
         if index < length:
             file = self._items[index]
-            index = index + 1
+            index += 1
+
+            if index == length: # add next item from generator if we are near the end
+                value = next(self._itemsGenerator, None)
+
+                if value:
+                    self._items.append(value)
+                    length += 1
 
             self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
             self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
 
-            self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
+            self._imageFrame['text'] = file.name + ' (' + str(index) + ')'
             self._mediaFrame.open(str(file))
 
             self.update_idletasks()
@@ -261,6 +277,8 @@ class Frame(tkinter.Frame):
 
     def _delete(self, event = None):
         if self._deleteButton['state'] != tkinter.DISABLED:
+            self._items += self._itemsGenerator
+
             index = self._index
             file = str(self._items.pop(index))
 
@@ -276,8 +294,6 @@ class Frame(tkinter.Frame):
             Data.store()
 
     def _browse(self):
-        self._items = ([v for hash, value in Data for v in map(pathlib.Path, value) if v.parent == self._tempDir])[::-1]
-
         self.focus_set()
 
         self.bind('<Left>',     self._previous)

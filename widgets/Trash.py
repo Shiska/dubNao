@@ -5,42 +5,7 @@ import widgets.Data as Data
 import widgets.Media as Media
 import widgets.SauceNao as SauceNao
 
-class Trash():
-    def __init__(self, data):
-        self._data = data
-        self._list = data.data
-
-    def __len__(self):
-        return len(self._list)
-
-    def __getitem__(self, key):
-        return self._list[key]
-
-    def store(self):
-        self._data.store()
-
-    def add(self, filename: str):
-        filename = str(filename)
-
-        if filename not in self._list:
-            self._list.append(filename)
-
-    def remove(self, filename: str):
-        return self._list.remove(str(filename))
-
-    def pop(self, index = None):
-        if index:
-            return self._list.pop(index)
-
-        return self._list.pop()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.store()
-
-Data = Trash(Data.Data('trash', list))
+Data = Data.ImageMap(Data.Data('trash'))
 
 class Frame(tkinter.Frame):
     def __init__(self, master, command = None):
@@ -86,6 +51,14 @@ class Frame(tkinter.Frame):
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
+        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value))
+        item = next(self._itemsGenerator, None)
+
+        if item:
+            self._items = [item]
+        else:
+            self._items = []
+
         self._showIndex()
 
     def _empty(self):
@@ -99,20 +72,26 @@ class Frame(tkinter.Frame):
             tkinter.Label(oframe, text = 'Empty').pack()
 
     def _showIndex(self, index = 0):
-        length = len(Data)
+        self._index = index
+        length = len(self._items)
 
         if length == 0:
             self._empty()
         else:
-            self._index = index
+            file = self._items[index]
+            index += 1
 
-            index = index + 1
-            file = pathlib.Path(Data[-index])
+            if index == length: # add next item from generator if we are near the end
+                value = next(self._itemsGenerator, None)
+
+                if value:
+                    self._items.append(value)
+                    length += 1
 
             if file.exists():
                 self._previousButton['state'] = tkinter.DISABLED if index == 1 else tkinter.NORMAL
                 self._nextButton['state'] = tkinter.DISABLED if index == length else tkinter.NORMAL
-                self._imageFrame['text'] = file.name + ' (' + str(index) + '/' + str(length) + ')'
+                self._imageFrame['text'] = file.name + ' (' + str(index) + ')'
                 self._mediaFrame.open(str(file))
 
                 self._sizeLabel['text'] = '{} x {}'.format(*self._mediaFrame._image.size)
@@ -120,10 +99,7 @@ class Frame(tkinter.Frame):
 
                 self.update_idletasks()
             else:
-                with Data as data:
-                    data.pop(-index)
-
-                self._showIndex(index - 1)
+                raise "File doesn't exist, something went wrong!"
 
     def previous(self, event = None):
         if self._index != 0:
@@ -134,13 +110,16 @@ class Frame(tkinter.Frame):
             self._showIndex(self._index + 1)
 
     def _popCurrentItem(self):
+        # load all items because we modify the source dict
+        self._items += self._itemsGenerator
+
         index = self._index
-        file = self._mediaFrame._filename
+        file = self._items.pop(index)
 
         with Data as data:
-            data.remove(file)
+            data.remove(file, removeKey = False)
 
-            if len(data) == index:
+            if len(self._items) == index:
                 self._showIndex(index - 1)
             else:
                 self._showIndex(index)
@@ -170,15 +149,18 @@ class Frame(tkinter.Frame):
 
         fileLabel.bind('<Configure>', lambda event: frame.grid_columnconfigure(1, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
-        def step():
-            if len(Data):
-                file = pathlib.Path(Data.pop())
+        items = (v for hash, value in Data for v in map(pathlib.Path, value))
 
+        def step():
+            file = next(items, None)
+
+            if file:
                 fileLabel['text'] = file.name
 
                 if file.exists():
                     file.unlink()
 
+                Data.remove(file, removeKey = False)
                 self.after_idle(step)
             else:
                 Data.store()

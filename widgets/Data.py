@@ -103,7 +103,7 @@ class ImageMap():
             except PIL.UnidentifiedImageError:
                 pass
 
-    def remove(self, filename: str = None, hash: str = None):
+    def remove(self, filename: str = None, hash: str = None, removeKey: bool = True):
         """
             >>> if True:
             ...     map = ImageMap(Data(''))
@@ -124,7 +124,7 @@ class ImageMap():
                 filename = str(filename)
                 
                 if filename in hset:
-                    if len(hset) == 1:
+                    if removeKey and len(hset) == 1:
                         del self._dict[hash]
                     else:
                         hset.remove(filename)
@@ -156,6 +156,9 @@ class ImageMap():
         for hash, value in self._iter_():
             yield hash, map(str, value)
 
+    def __reversed__(self):
+        pass
+
     def __getitem__(self, key):
         """
             >>> if True:
@@ -167,6 +170,9 @@ class ImageMap():
         """
 
         return [v for v in self._dict[key] if pathlib.Path(v).exists()]
+
+    def __contains__(self, key):
+        return (key in self._dict) and (len(self[key]) != 0)
 
     def renameFile(self, src, dest):
         src = pathlib.Path(src)
@@ -213,6 +219,9 @@ class ImageMap():
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.store()
+
+    def __len__(self):
+        return len(self._dict)
 
 if __name__ == '__main__':
     import doctest
