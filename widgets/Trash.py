@@ -51,7 +51,7 @@ class Frame(tkinter.Frame):
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
-        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value))
+        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value) if v.exists())
         item = next(self._itemsGenerator, None)
 
         if item:
@@ -80,7 +80,7 @@ class Frame(tkinter.Frame):
         else:
             file = self._items[index]
             index += 1
-
+            
             if index == length: # add next item from generator if we are near the end
                 value = next(self._itemsGenerator, None)
 
@@ -99,7 +99,7 @@ class Frame(tkinter.Frame):
 
                 self.update_idletasks()
             else:
-                raise "File doesn't exist, something went wrong!"
+                raise Exception("File ('" + str(file) + "') doesn't exist, something went wrong!")
 
     def previous(self, event = None):
         if self._index != 0:
