@@ -111,12 +111,16 @@ class Frame(tkinter.Frame):
         frame = tkinter.Frame(oframe)
         frame.pack(expand = True, fill = tkinter.X)
 
-        self._nextButton = tkinter.Button(frame, command = self.next)
-        self._nextButton._text = self._nextButton['text'] = 'Next (Right)'
+        self._nextButton = tkinter.Button(frame, text = 'Next (Right)')
+        self._nextButton._command = self._nextButton['command'] = self.next
         self._nextButton.pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         tkinter.Button(frame, text = 'Difference (Up)', command = self.difference).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
-        tkinter.Button(frame, text = 'Delete (Down)', command = self.delete).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+        
+        self._deleteButton = tkinter.Button(frame, text = 'Delete (Down)', command = self.delete)
+        self._deleteButton._command = self._deleteButton['command'] = self.delete
+        self._deleteButton.pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
+
         tkinter.Button(frame, text = 'Uncheck All', command = self.uncheck).pack(expand = True, fill = tkinter.X, side = tkinter.LEFT)
 
         self._vButtonsFrame = tkinter.Frame(oframe)
@@ -190,23 +194,36 @@ class Frame(tkinter.Frame):
                         victims = newvictims
 
                         if maxdiff == 0:
-                            self._autoselect(Setting.Data.autoselect)
+                            self._autoselect(self._nextButton, Setting.Data.autoselect)
 
             selectIdx = victims[0]
 
         return selectIdx
 
-    def _autoselect(self, seconds):
+    def _autoselect(self, button, seconds):
         if seconds == 0:
             self._stopAutoselect()
-            self.after_idle(self.next)
+            self.after_idle(button._command)
         else:
-            self._nextButton['text'] = 'Autoselect in ' + str(seconds) + ' seconds (Right)'
-            self._after = self.after(1000, lambda: self._autoselect(seconds - 1))
+            self._autoselectButton = button
+            button._text = button['text']
+
+            def countdown(seconds):
+                if seconds == 0:
+                    self._stopAutoselect()
+                    self.after_idle(button._command)
+                else:
+                    button['text'] = 'Autoselect in ' + str(seconds) + ' seconds'
+
+                    self._after = self.after(1000, lambda: countdown(seconds - 1))
+
+            countdown(seconds)
 
     def _stopAutoselect(self):
         if self._after:
-            self._nextButton['text'] = self._nextButton._text
+            button = self._autoselectButton
+            button['text'] = button._text
+
             self.after_cancel(self._after)
             self._after = None
 
@@ -475,34 +492,28 @@ class Frame(tkinter.Frame):
             self.next()
         else:
             if key:
-                if key in Trash.Data._dict and key not in SauceNao.Data:
-                    self._items.popitem() # store is called by Trash
+                isThereAnyVideo = 0
+                frame = self._newFrame(key)
 
-                    with Trash.Data as trashData:
-                        for file in files:
-                            trashData.add(str(file))
+                for file in files:
+                    isThereAnyVideo += self._createFrame(frame, file, False)
 
-                    self.after_idle(self.skip)
+                for file in SauceNao.Data[key]:
+                    isThereAnyVideo += self._createFrame(frame, file, True)
+
+                self._videosPlaying = True
+
+                if isThereAnyVideo:
+                    self._vButtonsFrame.pack()
                 else:
-                    isThereAnyVideo = 0
-                    frame = self._newFrame(key)
+                    self._vButtonsFrame.pack_forget()
 
-                    for file in files:
-                        isThereAnyVideo += self._createFrame(frame, file, False)
+                self._sortFrames(frame)
 
-                    for file in SauceNao.Data[key]:
-                        isThereAnyVideo += self._createFrame(frame, file, True)
+                if not self._after and key in Trash.Data._dict and key not in SauceNao.Data:
+                    self._autoselect(self._deleteButton, Setting.Data.autoselect)
 
-                    self._videosPlaying = True
-
-                    if isThereAnyVideo:
-                        self._vButtonsFrame.pack()
-                    else:
-                        self._vButtonsFrame.pack_forget()
-
-                    self._sortFrames(frame)
-
-                    frame.pack(fill = tkinter.BOTH)
+                frame.pack(fill = tkinter.BOTH)
             else:
                 if self._duplicates:
                     self._duplicates = None
