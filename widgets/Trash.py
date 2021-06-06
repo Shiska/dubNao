@@ -149,7 +149,7 @@ class Frame(tkinter.Frame):
 
         fileLabel.bind('<Configure>', lambda event: frame.grid_columnconfigure(1, minsize = event.width)) # increase minsize so it doesn't resize constantly
 
-        items = (v for hash, value in Data for v in map(pathlib.Path, value))
+        items = (v for hash, value in Data._dict.items() for v in map(pathlib.Path, value))
 
         def step():
             file = next(items, None)
@@ -160,9 +160,11 @@ class Frame(tkinter.Frame):
                 if file.exists():
                     file.unlink()
 
-                Data.remove(file, removeKey = False)
                 self.after_idle(step)
             else:
+                for k, v in Data._dict.items():
+                    v.clear()
+
                 Data.store()
 
                 self._empty()
