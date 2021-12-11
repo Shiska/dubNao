@@ -28,6 +28,9 @@ class Data():
                     dump = file.read()
 
                 data = pickle.loads(dump)
+
+                with open(filename + '.bak', 'wb') as file:
+                    file.write(dump)
             else:
                 dump = pickle.dumps(data)
 
@@ -169,7 +172,10 @@ class ImageMap():
             'hi'
         """
 
-        return [v for v in self._dict[key] if pathlib.Path(v).exists()]
+        if key in self._dict:
+            return [v for v in self._dict[key] if pathlib.Path(v).exists()]
+
+        return []
 
     def __contains__(self, key):
         return (key in self._dict) and (len(self[key]) != 0)

@@ -51,7 +51,9 @@ class Frame(tkinter.Frame):
         mediaFrame.bind('<Button-1>', lambda e: mediaFrame.osOpen())
         mediaFrame.grid(row = 2, column = 0, columnspan = 2, sticky = 'ew')
 
-        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value) if v.exists())
+        self._dict = Data._dict
+        self._getGenerator()
+
         item = next(self._itemsGenerator, None)
 
         if item:
@@ -60,6 +62,9 @@ class Frame(tkinter.Frame):
             self._items = []
 
         self._showIndex()
+
+    def _getGenerator(self):
+        self._itemsGenerator = (v for hash, value in reversed(self._dict.items()) for v in map(pathlib.Path, value) if v.exists())
 
     def _empty(self):
         if self.command:
@@ -110,14 +115,13 @@ class Frame(tkinter.Frame):
             self._showIndex(self._index + 1)
 
     def _popCurrentItem(self):
-        # load all items because we modify the source dict
-        self._items += self._itemsGenerator
-
         index = self._index
         file = self._items.pop(index)
 
         with Data as data:
             data.remove(file, removeKey = False)
+            # recreate generator because dict has changed
+            self._getGenerator()
 
             if len(self._items) == index:
                 self._showIndex(index - 1)

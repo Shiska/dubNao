@@ -60,7 +60,9 @@ class Frame(tkinter.Frame):
         self._messageLabel = tkinter.Label(oframe)
         self._messageLabel.pack()
 
-        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value) if v.parent == self._tempDir)
+        self._dict = Data._dict
+        self._getGenerator()
+
         item = next(self._itemsGenerator, None)
 
         if item:
@@ -275,16 +277,19 @@ class Frame(tkinter.Frame):
 
             threading.Thread(target = self._sauceNao, args = (self._mediaFrame._filename, self._checkSuccess, self._checkFailure, 0), daemon = True).start()
 
+    def _getGenerator(self):
+        self._itemsGenerator = (v for hash, value in reversed(Data._dict.items()) for v in map(pathlib.Path, value) if v.exists() and v.parent == self._tempDir)
+
     def _delete(self, event = None):
         if self._deleteButton['state'] != tkinter.DISABLED:
-            self._items += self._itemsGenerator
-
             index = self._index
             file = str(self._items.pop(index))
 
             with Trash.Data as trashData:
                 Data.remove(file)
                 trashData.add(file)
+                # recreate generator because dict has changed
+                self._getGenerator()
 
                 if len(self._items) == index:
                     self._showIndex(index - 1)
